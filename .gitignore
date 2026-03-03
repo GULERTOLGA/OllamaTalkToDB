@@ -1,0 +1,10 @@
+# Ortam değişkenleri (gizli anahtarlar)
+.env
+*.env.local
+
+# Bağımlılıklar
+node_modules/
+
+# Build / log
+dist/
+*.log

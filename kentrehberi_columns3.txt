@@ -1,0 +1,90 @@
+table_schema;table_name;ordinal_position;column_name;data_type
+public;yapi;1;objectid;integer
+public;yapi;2;parsel_id;bigint
+public;yapi;3;kbs_bina_no;character varying
+public;yapi;4;yapi_adi;character varying
+public;yapi;5;otopark;character varying
+public;yapi;6;kat_durum;character varying
+public;yapi;7;site_adi;character varying
+public;yapi;8;aciklama;character varying
+public;yapi;9;uavt_gerekce;character varying
+public;yapi;10;postakodu;character varying
+public;yapi;11;tabanalani;double precision
+public;yapi;12;insaat_alani;double precision
+public;yapi;13;insaat_turu_id;bigint
+public;yapi;14;katadedi;integer
+public;yapi;15;cati_kati;integer
+public;yapi;16;normal_kat;integer
+public;yapi;17;bodrum_kat;integer
+public;yapi;18;isyeri_sayisi;integer
+public;yapi;19;daire_sayisi;integer
+public;yapi;20;yapi_kullanim_id;bigint
+public;yapi;21;yapi_durum_id;integer
+public;yapi;22;yapi_turu_id;integer
+public;yapi;23;maks_durum_id;integer
+public;yapi;24;maks_tip_id;integer
+public;yapi;25;diger_yapi_tip_id;integer
+public;yapi;26;olcek_id;integer
+public;yapi;27;olusumyontemi_id;integer
+public;yapi;28;bina_durumu_id;integer
+public;yapi;29;dis_cephe_durumu_id;integer
+public;yapi;30;kullanilan_malzeme_id;integer
+public;yapi;31;harita_bilgisi_id;integer
+public;yapi;32;yakitturu;integer
+public;yapi;33;isinmaturu;integer
+public;yapi;34;maks_kod;bigint
+public;yapi;35;digeryapi;boolean
+public;yapi;36;geo_durum;boolean
+public;yapi;37;m_date;timestamp with time zone
+public;yapi;38;m_status;character varying
+public;yapi;39;m_log_user;character varying
+public;yapi;40;user_create;integer
+public;yapi;41;user_create_n;character varying
+public;yapi;42;user_modify;integer
+public;yapi;43;user_modify_n;character varying
+public;yapi;44;poly;USER-DEFINED
+public;yapi;45;nc_uavtkod;double precision
+public;yapi;46;nc_parselref;integer
+public;yapi;47;nc_kullanimtipi;integer
+public;yapi;48;nc_konut;integer
+public;yapi;49;nc_ticaret;integer
+public;yapi;50;nc_sanayi;integer
+public;yapi;51;nc_egitim;integer
+public;yapi;52;nc_kulturel;integer
+public;yapi;53;nc_spor;integer
+public;yapi;54;nc_dini;integer
+public;yapi;55;nc_asansor;integer
+public;yapi;56;nc_yanginmerdiveni;integer
+public;yapi;57;nc_siginak;integer
+public;yapi;58;nc_askogrupkodu;integer
+public;yapi;59;nc_askobinakodu;integer
+public;yapi;60;nc_yukseklik;double precision
+public;yapi;61;nc_geometry_length;double precision
+public;yapi;62;nc_geometry_area;double precision
+public;yapi;63;nc_yapimtarihi;date
+public;yapi;64;nc_olcumyapan;integer
+public;yapi;65;nc_kontrolor;integer
+public;yapi;66;nc_mahalleref;integer
+public;yapi;67;nc_z;double precision
+public;yapi;68;nc_konumu;integer
+public;yapi;69;nc_imarref;integer
+public;yapi;70;nc_aktif_numarasi;character varying
+public;yapi;71;nc_pasif_numarasi;character varying
+public;yapi;72;nc_numaratajref;integer
+public;yapi;73;nc_koruma_durumu;integer
+public;yapi;74;nc_aciklama11;character varying
+public;yapi;75;nc_plan_karari;integer
+public;yapi;76;nc_symbolizer;character varying
+public;yapi;77;nc_user_log;character varying
+public;yapi;78;nc_kati_atik_konteyner;integer
+public;yapi;79;nc_atiksu_baglantisi;integer
+public;yapi;80;nc_ilceref;double precision
+public;yapi;81;nc_tanitimkodu;character varying
+public;yapi;82;nc_postakodu;character varying
+public;yapi;83;nc_tapumahallekodu;double precision
+public;yapi;84;nc_kamu;integer
+public;yapi;85;nc_globalid;bytea
+public;yapi;86;nc_guid;character varying
+public;yapi;87;nc_labelsymbolizer;character varying
+public;yapi;88;yapikayitbelgeno;character varying
+public;yapi;89;yapikayitbelgetarih;date

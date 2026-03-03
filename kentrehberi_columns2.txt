@@ -1,0 +1,574 @@
+table_name;ordinal_position;column_name;data_type
+kentrehberi_emlak_arsa;1;objectid;integer
+kentrehberi_emlak_arsa;2;tapu_mah_adi;character varying
+kentrehberi_emlak_arsa;3;adaparsel;character varying
+kentrehberi_emlak_arsa;4;poly;USER-DEFINED
+kentrehberi_emlak_arsa;5;tapu_blok_no;character varying
+kentrehberi_emlak_arsa;6;tapu_katno;character varying
+kentrehberi_emlak_arsa;7;tapu_bbolumno;character varying
+kentrehberi_emlak_arsa;8;kayit_turu;character varying
+kentrehberi_emlak_arsa;9;tasinmaz_tipi;character varying
+kentrehberi_emlak_arsa;10;edinme_sebebi;character varying
+kentrehberi_emlak_arsa;11;icon;character varying
+kentrehberi_emlak_arsa;12;geo_durum;boolean
+kentrehberi_emlak_arsa;13;durum;text
+kentrehberi_emlak_arsa;14;hisse_durum;character varying
+kentrehberi_emlak_arsa;15;yapi_id;integer
+kentrehberi_emlak_arsa;16;mulkiyet_durumu;character varying
+kentrehberi_emlak_arsa_kat_mulkiyetli;1;objectid;integer
+kentrehberi_emlak_arsa_kat_mulkiyetli;2;tapu_mah_adi;character varying
+kentrehberi_emlak_arsa_kat_mulkiyetli;3;adaparsel;character varying
+kentrehberi_emlak_arsa_kat_mulkiyetli;4;poly;USER-DEFINED
+kentrehberi_emlak_arsa_kat_mulkiyetli;5;tapu_blok_no;character varying
+kentrehberi_emlak_arsa_kat_mulkiyetli;6;tapu_katno;character varying
+kentrehberi_emlak_arsa_kat_mulkiyetli;7;tapu_bbolumno;character varying
+kentrehberi_emlak_arsa_kat_mulkiyetli;8;kayit_turu;character varying
+kentrehberi_emlak_arsa_kat_mulkiyetli;9;tasinmaz_tipi;character varying
+kentrehberi_emlak_arsa_kat_mulkiyetli;10;edinme_sebebi;character varying
+kentrehberi_emlak_arsa_kat_mulkiyetli;11;icon;character varying
+kentrehberi_emlak_arsa_kat_mulkiyetli;12;geo_durum;boolean
+kentrehberi_emlak_arsa_kat_mulkiyetli;13;durum;character varying
+kentrehberi_emlak_arsa_kat_mulkiyetli;14;hisse_durum;character varying
+kentrehberi_emlak_arsa_kat_mulkiyetli;15;yapi_id;integer
+kentrehberi_emlak_arsa_kat_mulkiyetli;16;mulkiyet_durumu;character varying
+kentrehberi_emlak_arsa_kismi_hisse;1;objectid;integer
+kentrehberi_emlak_arsa_kismi_hisse;2;tapu_mah_adi;character varying
+kentrehberi_emlak_arsa_kismi_hisse;3;adaparsel;character varying
+kentrehberi_emlak_arsa_kismi_hisse;4;poly;USER-DEFINED
+kentrehberi_emlak_arsa_kismi_hisse;5;tapu_blok_no;character varying
+kentrehberi_emlak_arsa_kismi_hisse;6;tapu_katno;character varying
+kentrehberi_emlak_arsa_kismi_hisse;7;tapu_bbolumno;character varying
+kentrehberi_emlak_arsa_kismi_hisse;8;kayit_turu;character varying
+kentrehberi_emlak_arsa_kismi_hisse;9;tasinmaz_tipi;character varying
+kentrehberi_emlak_arsa_kismi_hisse;10;edinme_sebebi;character varying
+kentrehberi_emlak_arsa_kismi_hisse;11;icon;character varying
+kentrehberi_emlak_arsa_kismi_hisse;12;geo_durum;boolean
+kentrehberi_emlak_arsa_kismi_hisse;13;durum;character varying
+kentrehberi_emlak_arsa_kismi_hisse;14;hisse_durum;character varying
+kentrehberi_emlak_arsa_kismi_hisse;15;yapi_id;integer
+kentrehberi_emlak_arsa_kismi_hisse;16;mulkiyet_durumu;character varying
+kentrehberi_emlak_arsa_satildi;1;objectid;integer
+kentrehberi_emlak_arsa_satildi;2;tapu_mah_adi;character varying
+kentrehberi_emlak_arsa_satildi;3;adaparsel;character varying
+kentrehberi_emlak_arsa_satildi;4;poly;USER-DEFINED
+kentrehberi_emlak_arsa_satildi;5;tapu_blok_no;character varying
+kentrehberi_emlak_arsa_satildi;6;tapu_katno;character varying
+kentrehberi_emlak_arsa_satildi;7;tapu_bbolumno;character varying
+kentrehberi_emlak_arsa_satildi;8;kayit_turu;character varying
+kentrehberi_emlak_arsa_satildi;9;tasinmaz_tipi;character varying
+kentrehberi_emlak_arsa_satildi;10;edinme_sebebi;character varying
+kentrehberi_emlak_arsa_satildi;11;icon;character varying
+kentrehberi_emlak_arsa_satildi;12;geo_durum;boolean
+kentrehberi_emlak_arsa_satildi;13;durum;character varying
+kentrehberi_emlak_arsa_satildi;14;hisse_durum;character varying
+kentrehberi_emlak_arsa_satildi;15;yapi_id;integer
+kentrehberi_emlak_arsa_satildi;16;mulkiyet_durumu;character varying
+kentrehberi_emlak_arsa_tam_hisse;1;objectid;integer
+kentrehberi_emlak_arsa_tam_hisse;2;tapu_mah_adi;character varying
+kentrehberi_emlak_arsa_tam_hisse;3;adaparsel;character varying
+kentrehberi_emlak_arsa_tam_hisse;4;poly;USER-DEFINED
+kentrehberi_emlak_arsa_tam_hisse;5;tapu_blok_no;character varying
+kentrehberi_emlak_arsa_tam_hisse;6;tapu_katno;character varying
+kentrehberi_emlak_arsa_tam_hisse;7;tapu_bbolumno;character varying
+kentrehberi_emlak_arsa_tam_hisse;8;kayit_turu;character varying
+kentrehberi_emlak_arsa_tam_hisse;9;tasinmaz_tipi;character varying
+kentrehberi_emlak_arsa_tam_hisse;10;edinme_sebebi;character varying
+kentrehberi_emlak_arsa_tam_hisse;11;icon;character varying
+kentrehberi_emlak_arsa_tam_hisse;12;geo_durum;boolean
+kentrehberi_emlak_arsa_tam_hisse;13;durum;text
+kentrehberi_emlak_arsa_tam_hisse;14;hisse_durum;character varying
+kentrehberi_emlak_arsa_tam_hisse;15;yapi_id;integer
+kentrehberi_emlak_arsa_tam_hisse;16;mulkiyet_durumu;character varying
+kentrehberi_emlak_eskale_endeks;1;objectid;integer
+kentrehberi_emlak_eskale_endeks;2;tasinmaz_id;integer
+kentrehberi_emlak_eskale_endeks;3;islem_tipi;integer
+kentrehberi_emlak_eskale_endeks;4;ilkendeks;numeric
+kentrehberi_emlak_eskale_endeks;5;sonendeks;double precision
+kentrehberi_emlak_eskale_endeks;6;guncel_deger;double precision
+kentrehberi_emlak_eskale_endeks;7;maaliyet_bedeli;double precision
+kentrehberi_emlak_eskale_endeks;8;endeks;double precision
+kentrehberi_emlak_eskale_endeks;9;toplam_arsa_bedel;double precision
+kentrehberi_emlak_max;1;objectid;integer
+kentrehberi_emlak_max;2;guncel_bedel;double precision
+kentrehberi_emlak_max;3;emlak_id;integer
+kentrehberi_emlak_max;4;sonendeks;double precision
+kentrehberi_emlak_max;5;ilk;double precision
+kentrehberi_emlak_max;6;guncellenmis_bedel;numeric
+kentrehberi_emlak_tahsis;1;id;bigint
+kentrehberi_emlak_tahsis;2;objectid;integer
+kentrehberi_emlak_tahsis;3;tahsis_edilen_kurum;character varying
+kentrehberi_emlak_tahsis;4;islem_turu;character varying
+kentrehberi_emlak_tahsis;5;tahsis_bas_tar;text
+kentrehberi_emlak_tahsis;6;tahsis_bitis_tar;text
+kentrehberi_emlak_tahsis;7;tahsis_tarih_durum;character varying
+kentrehberi_emlak_tahsis;8;tahsis_gun;integer
+kentrehberi_emlak_tahsis;9;tahsis_1ay_kalan;boolean
+kentrehberi_emlak_tahsis;10;tahsis_detay;text
+kentrehberi_emlak_tahsis;11;tahsis_durum;character varying
+kentrehberi_emlak_tahsis;12;gecen_sure;integer
+kentrehberi_emlak_tahsis;13;kalan_sure;integer
+kentrehberi_emlak_tahsis;14;ilce_adi;character varying
+kentrehberi_emlak_tahsis;15;tapu_mah_adi;character varying
+kentrehberi_emlak_tahsis;16;idari_mah_adi;character varying
+kentrehberi_emlak_tahsis;17;adaparsel;character varying
+kentrehberi_emlak_tahsis;18;tapu_blok_no;character varying
+kentrehberi_emlak_tahsis;19;tapu_katno;character varying
+kentrehberi_emlak_tahsis;20;tapu_bbolumno;character varying
+kentrehberi_emlak_tahsis;21;yol_adi;character varying
+kentrehberi_emlak_tahsis;22;aktif_pasif;character varying
+kentrehberi_emlak_tahsis;23;poly;USER-DEFINED
+kentrehberi_emlak_tahsis;24;tahsis_alan_id;integer
+kentrehberi_emlak_tahsis;25;m_date;date
+kentrehberi_emlak_tahsis;26;m_status;character varying
+kentrehberi_emlak_tahsis;27;m_log_user;character varying
+kentrehberi_emlak_tahsis;28;geo_durum;boolean
+kentrehberi_emlak_tahsis;29;tahsis_amaci_id;integer
+kentrehberi_emlak_tahsis;30;aciklama;character varying
+kentrehberi_emlak_tahsis;31;bform;text
+kentrehberi_emlak_tasinmaz_hesap;1;objectid;integer
+kentrehberi_emlak_tasinmaz_hesap;2;geo_durum;boolean
+kentrehberi_emlak_tasinmaz_hesap;3;mulkiyet_durum_id;integer
+kentrehberi_emlak_tasinmaz_hesap;4;ilkpay;bigint
+kentrehberi_emlak_tasinmaz_hesap;5;payda;bigint
+kentrehberi_emlak_tasinmaz_hesap;6;alan;double precision
+kentrehberi_emlak_tasinmaz_hesap;7;ilk_hisse_yuzolcum;double precision
+kentrehberi_emlak_tasinmaz_hesap;8;toplam_hisse_yuzolcum;double precision
+kentrehberi_emlak_tasinmaz_hesap;9;toplam_hisse;double precision
+kentrehberi_emlak_tasinmaz_hesap;10;kalan_hisse_yuzolcum;double precision
+kentrehberi_emlak_tasinmaz_hesap;11;ilk_hisse;double precision
+kentrehberi_emlak_tasinmaz_hesap;12;kalan_toplam_hisse;numeric
+kentrehberi_emlak_tasinmaz_hesap;13;float8;double precision
+kentrehberi_emlak_toplamdeger;1;tasinmaz_id;integer
+kentrehberi_emlak_toplamdeger;2;toplam_guncel_deger;numeric
+kentrehberi_emlak_toplamdeger;3;toplam_deger;numeric
+kentrehberi_emlk_kira;1;id;bigint
+kentrehberi_emlk_kira;2;objectid;integer
+kentrehberi_emlk_kira;3;firma_ad_soyad;character varying
+kentrehberi_emlk_kira;4;kiralanan_yerin_ozellikleri;character varying
+kentrehberi_emlk_kira;5;kira_bas_tar;date
+kentrehberi_emlk_kira;6;kira_bitis_tar;date
+kentrehberi_emlk_kira;7;islem_turu;character varying
+kentrehberi_emlk_kira;8;kira_tarih_durum;character varying
+kentrehberi_emlk_kira;9;kira_60gun;integer
+kentrehberi_emlk_kira;10;kira_1ay_kalan;boolean
+kentrehberi_emlk_kira;11;kira_detay;text
+kentrehberi_emlk_kira;12;kira_durum;character varying
+kentrehberi_emlk_kira;13;ilce_adi;character varying
+kentrehberi_emlk_kira;14;tapu_mah_adi;character varying
+kentrehberi_emlk_kira;15;idari_mah_adi;character varying
+kentrehberi_emlk_kira;16;adaparsel;character varying
+kentrehberi_emlk_kira;17;tapu_blok_no;character varying
+kentrehberi_emlk_kira;18;tapu_katno;character varying
+kentrehberi_emlk_kira;19;tapu_bbolumno;character varying
+kentrehberi_emlk_kira;20;yol_adi;character varying
+kentrehberi_emlk_kira;21;aktif_pasif;character varying
+kentrehberi_emlk_kira;22;poly;USER-DEFINED
+kentrehberi_emlk_kira;23;m_date;date
+kentrehberi_emlk_kira;24;m_status;character varying
+kentrehberi_emlk_kira;25;m_log_user;character varying
+kentrehberi_emlk_kira;26;geo_durum;boolean
+kentrehberi_fenis;1;objectid;integer
+kentrehberi_fenis;2;aciklama;character varying
+kentrehberi_fenis;3;geo_durum;boolean
+kentrehberi_fenis;4;bas_tarihi;text
+kentrehberi_fenis;5;bitis_tarihi;text
+kentrehberi_fenis;6;is_adi;character varying
+kentrehberi_fenis;7;poly;USER-DEFINED
+kentrehberi_fenis;8;is_durumu_id;integer
+kentrehberi_fenis;9;isin_durumu;character varying
+kentrehberi_fenis;10;ihale_adi;character varying
+kentrehberi_fenis_biten;1;objectid;integer
+kentrehberi_fenis_biten;2;aciklama;character varying
+kentrehberi_fenis_biten;3;geo_durum;boolean
+kentrehberi_fenis_biten;4;m_status;character varying
+kentrehberi_fenis_biten;5;m_log_user;character varying
+kentrehberi_fenis_biten;6;m_date;date
+kentrehberi_fenis_biten;7;is_no;integer
+kentrehberi_fenis_biten;8;bas_tarihi;date
+kentrehberi_fenis_biten;9;bitis_tarihi;date
+kentrehberi_fenis_biten;10;is_durumu;character varying
+kentrehberi_fenis_biten;11;is_adi;character varying
+kentrehberi_fenis_biten;12;poly;USER-DEFINED
+kentrehberi_fenis_biten;13;ihale_adi;character varying
+kentrehberi_fenis_devameden;1;objectid;integer
+kentrehberi_fenis_devameden;2;aciklama;character varying
+kentrehberi_fenis_devameden;3;geo_durum;boolean
+kentrehberi_fenis_devameden;4;m_status;character varying
+kentrehberi_fenis_devameden;5;m_log_user;character varying
+kentrehberi_fenis_devameden;6;m_date;date
+kentrehberi_fenis_devameden;7;is_no;integer
+kentrehberi_fenis_devameden;8;bas_tarihi;date
+kentrehberi_fenis_devameden;9;bitis_tarihi;date
+kentrehberi_fenis_devameden;10;is_durumu;character varying
+kentrehberi_fenis_devameden;11;is_adi;character varying
+kentrehberi_fenis_devameden;12;poly;USER-DEFINED
+kentrehberi_fenis_devameden;13;ihale_adi;character varying
+kentrehberi_fenis_planlanan;1;objectid;integer
+kentrehberi_fenis_planlanan;2;aciklama;character varying
+kentrehberi_fenis_planlanan;3;geo_durum;boolean
+kentrehberi_fenis_planlanan;4;m_status;character varying
+kentrehberi_fenis_planlanan;5;m_log_user;character varying
+kentrehberi_fenis_planlanan;6;m_date;date
+kentrehberi_fenis_planlanan;7;is_no;integer
+kentrehberi_fenis_planlanan;8;bas_tarihi;date
+kentrehberi_fenis_planlanan;9;bitis_tarihi;date
+kentrehberi_fenis_planlanan;10;is_durumu;character varying
+kentrehberi_fenis_planlanan;11;is_adi;character varying
+kentrehberi_fenis_planlanan;12;poly;USER-DEFINED
+kentrehberi_fenis_planlanan;13;ihale_adi;character varying
+kentrehberi_fenisimalat;1;objectid;integer
+kentrehberi_fenisimalat;2;poly;USER-DEFINED
+kentrehberi_fenisimalat;3;bas_tarihi;text
+kentrehberi_fenisimalat;4;bitis_tarihi;text
+kentrehberi_fenisimalat;5;geo_durum;boolean
+kentrehberi_fenisimalat;6;imalat_miktari1;text
+kentrehberi_fenisimalat;7;imalat_miktari2;text
+kentrehberi_fenisimalat;8;imalatin_turu;character varying
+kentrehberi_fenisimalat;9;aciklama;character varying
+kentrehberi_fenisimalat;10;imalat_durum_id;integer
+kentrehberi_fenisimalat;11;imalatin_durumu;character varying
+kentrehberi_geofenisyolyapim;1;objectid;integer
+kentrehberi_geofenisyolyapim;2;aciklama;character varying
+kentrehberi_geofenisyolyapim;3;geo_durum;boolean
+kentrehberi_geofenisyolyapim;4;m_status;character varying
+kentrehberi_geofenisyolyapim;5;m_log_user;character varying
+kentrehberi_geofenisyolyapim;6;m_date;date
+kentrehberi_geofenisyolyapim;7;atasman_no;character varying
+kentrehberi_geofenisyolyapim;8;yol_genisligi;double precision
+kentrehberi_geofenisyolyapim;9;tespit_yontemi;character varying
+kentrehberi_geofenisyolyapim;10;yol_durum_id1;integer
+kentrehberi_geofenisyolyapim;11;kaplama_turu_id;integer
+kentrehberi_geofenisyolyapim;12;yol_uzunluk;double precision
+kentrehberi_geofenisyolyapim;13;yol_durum_id2;integer
+kentrehberi_geofenisyolyapim;14;yol_yapim_turu_id;integer
+kentrehberi_geofenisyolyapim;15;baslangic_tarihi;character varying
+kentrehberi_geofenisyolyapim;16;bitis_tarihi;character varying
+kentrehberi_geofenisyolyapim;17;firma_adi;character varying
+kentrehberi_geofenisyolyapim;18;yol_id;integer
+kentrehberi_geofenisyolyapim;19;poly;USER-DEFINED
+kentrehberi_geofenisyolyapim;20;yol_kaplama_turu;character varying
+kentrehberi_isgal_rapor;1;objectid;integer
+kentrehberi_isgal_rapor;2;yol_adi;text
+kentrehberi_isgal_rapor;3;alan;double precision
+kentrehberi_isgal_rapor;4;parsel_id;integer
+kentrehberi_isgal_rapor;5;adi_soyadi;character varying
+kentrehberi_isgal_rapor;6;sicil_no;character varying
+kentrehberi_isgal_rapor;7;aciklama;character varying
+kentrehberi_isgal_rapor;8;poly;USER-DEFINED
+kentrehberi_isgal_rapor;9;isgal_id;integer
+kentrehberi_isgal_rapor;10;isgal_kalan_sure;integer
+kentrehberi_isgal_rapor;11;isgal_durum_detay;text
+kentrehberi_isgal_rapor;12;isgal_durum;text
+kentrehberi_isgal_rapor;13;isgal_durum_boolean;boolean
+kentrehberi_kapi;1;objectid;integer
+kentrehberi_kapi;2;mahalle_adi;character varying
+kentrehberi_kapi;3;yol_adi;character varying
+kentrehberi_kapi;4;yol_turu;character varying
+kentrehberi_kapi;5;eski_kapi_no;character varying
+kentrehberi_kapi;6;blok_adi;character varying
+kentrehberi_kapi;7;uavt_kod;bigint
+kentrehberi_kapi;8;kapi_no;character varying
+kentrehberi_kapi;9;adi;character varying
+kentrehberi_kapi;10;ng_kapi_adi;text
+kentrehberi_kapi;11;site_adi;character varying
+kentrehberi_kapi;12;ng_site_adi;text
+kentrehberi_kapi;13;blok_no;character varying
+kentrehberi_kapi;14;ng_blok_no;text
+kentrehberi_kapi;15;kbs_bina_no;character varying
+kentrehberi_kapi;16;ada_parsel;character varying
+kentrehberi_kapi;17;mahalle_id;integer
+kentrehberi_kapi;18;yol_id;integer
+kentrehberi_kapi;19;parsel_id;integer
+kentrehberi_kapi;20;yapi_id;integer
+kentrehberi_kapi;21;pafta;character varying
+kentrehberi_kapi;22;ada;character varying
+kentrehberi_kapi;23;parsel;character varying
+kentrehberi_kapi;24;geo_durum;boolean
+kentrehberi_kapi;25;m_date;timestamp with time zone
+kentrehberi_kapi;26;aciklama;character varying
+kentrehberi_kapi;27;poly;USER-DEFINED
+kentrehberi_katplani;1;objectid;integer
+kentrehberi_katplani;2;yapi_id;integer
+kentrehberi_katplani;3;tapu_blok_no;character varying
+kentrehberi_katplani;4;tapu_katno;character varying
+kentrehberi_katplani;5;tapu_bbolumno;character varying
+kentrehberi_katplani;6;ada;character varying
+kentrehberi_katplani;7;parsel;character varying
+kentrehberi_katplani;8;adaparsel;character varying
+kentrehberi_katplani;9;tapu_mah_adi;character varying
+kentrehberi_katplani;10;poly;USER-DEFINED
+kentrehberi_kira_rapor;1;objectid;integer
+kentrehberi_kira_rapor;2;yontem;character varying
+kentrehberi_kira_rapor;3;poly;USER-DEFINED
+kentrehberi_kira_rapor;4;sicil_no;double precision
+kentrehberi_kira_rapor;5;firma_ad_soyad;character varying
+kentrehberi_kira_rapor;6;kira_id;integer
+kentrehberi_kira_rapor;7;kira_durum_detay;text
+kentrehberi_kira_rapor;8;gecen_sure;integer
+kentrehberi_kira_rapor;9;kalan_sure;integer
+kentrehberi_kira_rapor;10;kira_arttirma_kalan_sure;integer
+kentrehberi_kira_rapor;11;devir_kapanis_gecen_sure;integer
+kentrehberi_kira_rapor;12;kira_durum;text
+kentrehberi_kira_rapor;13;kira_durum_boolean;boolean
+kentrehberi_kira_rapor;14;kiralama_amaci;character varying
+kentrehberi_kira_rapor;15;kira_bas_tar;date
+kentrehberi_kira_rapor;16;kira_bitis_tar;date
+kentrehberi_kira_rapor;17;harita_bas_tarihi;text
+kentrehberi_kira_rapor;18;harita_bit_tar;text
+kentrehberi_kira_rapor;19;devir_kapanis_tarih;date
+kentrehberi_kira_rapor;20;kira_bedeli;double precision
+kentrehberi_kira_rapor;21;alan;double precision
+kentrehberi_kiracilar_bitis;1;objectid;integer
+kentrehberi_kiracilar_bitis;2;kira_bas_tar;date
+kentrehberi_kiracilar_bitis;3;kira_bitis_tar;date
+kentrehberi_kiracilar_bitis;4;kira_tarih_durum;text
+kentrehberi_kiracilar_bitis;5;kiralama_60gun;integer
+kentrehberi_kiracilar_bitis;6;kiralama_1hafta_kalan;boolean
+kentrehberi_kiracilar_bitis;7;kira_suresi;character varying
+kentrehberi_kiracilar_bitis;8;sicil_no;double precision
+kentrehberi_kiracilar_bitis;9;firma_ad_soyad;character varying
+kentrehberi_kiracilar_bitis;10;kiralama_amaci_id;integer
+kentrehberi_kiracilar_bitis;11;kira_id;integer
+kentrehberi_kiracilar_bitis;12;geo_durum;boolean
+kentrehberi_kiracilar_bitis;13;durum_id;integer
+kentrehberi_kiracilar_bitis;14;encumen_kar_tar;date
+kentrehberi_kiracilar_bitis;15;kira_arttirma_tar;date
+kentrehberi_kiracilar_bitis;16;st_pointonsurface;USER-DEFINED
+kentrehberi_parkic;1;objectid;integer
+kentrehberi_parkic;2;park_adi;character varying
+kentrehberi_parkic;3;tur_adi;character varying
+kentrehberi_parkic;4;geo_durum;boolean
+kentrehberi_parkic;5;malzeme_turu;character varying
+kentrehberi_parkic;6;malzeme_turu_detay;character varying
+kentrehberi_parkic;7;malzeme_turu_alt_detay;character varying
+kentrehberi_parkic;8;renk;character varying
+kentrehberi_parkic;9;alt_zemin_turu;character varying
+kentrehberi_parkic;10;alt_zemin_miktari;text
+kentrehberi_parkic;11;alan;double precision
+kentrehberi_parkic;12;poly;USER-DEFINED
+kentrehberi_parkis;1;objectid;integer
+kentrehberi_parkis;2;is_adi;character varying
+kentrehberi_parkis;3;is_durumu_id;integer
+kentrehberi_parkis;4;personel_say;integer
+kentrehberi_parkis;5;aciklama;character varying
+kentrehberi_parkis;6;m_status;character varying
+kentrehberi_parkis;7;m_log_user;character varying
+kentrehberi_parkis;8;m_date;date
+kentrehberi_parkis;9;geo_durum;boolean
+kentrehberi_parkis;10;poly;USER-DEFINED
+kentrehberi_parkis;11;sinir_id;integer
+kentrehberi_parkis;12;is_durumu;character varying
+kentrehberi_parkis;13;basla_tarihi;text
+kentrehberi_parkis;14;bit_tarihi;text
+kentrehberi_parkis;15;park_adi;character varying
+kentrehberi_parkis;16;icon;text
+kentrehberi_parklar;1;objectid;integer
+kentrehberi_parklar;2;park_adi;character varying
+kentrehberi_parklar;3;geo_durum;boolean
+kentrehberi_parklar;4;poly;USER-DEFINED
+kentrehberi_parklar;5;proje_tarihi;date
+kentrehberi_parklar;6;proje_uygulayan;character varying
+kentrehberi_parklar;7;proje_cizen;character varying
+kentrehberi_parklar;8;uygulama_bas_tarihi;text
+kentrehberi_parklar;9;uygulama_bit_tarihi;text
+kentrehberi_parklar;10;revizyon_tarihi;text
+kentrehberi_parklar;11;revizyon_sekli;character varying
+kentrehberi_parklar;12;firma_adi;character varying
+kentrehberi_parklar;13;firma_adresi;character varying
+kentrehberi_parklar;14;firma_telefon;character varying
+kentrehberi_parklar;15;firma_mail;character varying
+kentrehberi_parklar;16;bolge_adi;character varying
+kentrehberi_parklar;17;alan_turu;character varying
+kentrehberi_parklar;18;mahalle_adi;character varying
+kentrehberi_parkmob;1;objectid;integer
+kentrehberi_parkmob;2;geopark_id;integer
+kentrehberi_parkmob;3;malzeme_adedi;integer
+kentrehberi_parkmob;4;malzeme_id;integer
+kentrehberi_parkmob;5;m_date;date
+kentrehberi_parkmob;6;m_log_user;character varying
+kentrehberi_parkmob;7;m_status;character varying
+kentrehberi_parkmob;8;geo_durum;boolean
+kentrehberi_parkmob;9;malzeme_detay_id;integer
+kentrehberi_parkmob;10;nc_park_adi;character varying
+kentrehberi_parkmob;11;nc_belnet_adi;character varying
+kentrehberi_parkmob;12;nc_tur;character varying
+kentrehberi_parkmob;13;nc_malzemele_turu;character varying
+kentrehberi_parkmob;14;nc_malzeme_adi;character varying
+kentrehberi_parkmob;15;poly;USER-DEFINED
+kentrehberi_parkmob;16;boy;double precision
+kentrehberi_parkmob;17;cap;double precision
+kentrehberi_parkmob;18;en;double precision
+kentrehberi_parkmob;19;malzeme_anatur_id;integer
+kentrehberi_parkmob;20;malzeme_tur_id;integer
+kentrehberi_parkmob;21;yapim_yili;date
+kentrehberi_parkmob;22;saha_olcum_nokta_no;integer
+kentrehberi_parkmob;23;malzeme_cinsi_id;integer
+kentrehberi_parkmob;24;personel_id;integer
+kentrehberi_parkmob;25;calisma_tarihi;date
+kentrehberi_parkmob;26;firma;character varying
+kentrehberi_parkmob;27;latince_ismi;character varying
+kentrehberi_parkmob;28;yaprak_dokum;boolean
+kentrehberi_parkmob;29;icon;character varying
+kentrehberi_parkmob;30;malzeme_detay;character varying
+kentrehberi_parkmob;31;bolge_adi;character varying
+kentrehberi_parkmob;32;malzeme_turu;character varying
+kentrehberi_parkmob;33;park_adi;character varying
+kentrehberi_parkmob;34;ic_alan_turu;character varying
+kentrehberi_parsel;1;objectid;integer
+kentrehberi_parsel;2;tapu_mah_adi;character varying
+kentrehberi_parsel;3;idari_mah_adi;character varying
+kentrehberi_parsel;4;ng_tapu_mah_adi;text
+kentrehberi_parsel;5;paftaadi;character varying
+kentrehberi_parsel;6;adaparsel;character varying
+kentrehberi_parsel;7;ada;character varying
+kentrehberi_parsel;8;parsel;character varying
+kentrehberi_parsel;9;m_date;timestamp with time zone
+kentrehberi_parsel;10;geo_durum;boolean
+kentrehberi_parsel;11;m_log_user;character varying
+kentrehberi_parsel;12;aciklama;character varying
+kentrehberi_parsel;13;alan;numeric
+kentrehberi_parsel;14;poly;USER-DEFINED
+kentrehberi_planfonk;1;objectid;integer
+kentrehberi_planfonk;2;m_date;date
+kentrehberi_planfonk;3;fonksiyon_alan;numeric
+kentrehberi_planfonk;4;on_bahce;double precision
+kentrehberi_planfonk;5;yan_bahce;double precision
+kentrehberi_planfonk;6;min_taks;double precision
+kentrehberi_planfonk;7;min_kaks;double precision
+kentrehberi_planfonk;8;min_kat_adedi;integer
+kentrehberi_planfonk;9;maks_taks;character varying
+kentrehberi_planfonk;10;maks_kaks;character varying
+kentrehberi_planfonk;11;maks_kat_adedi;integer
+kentrehberi_planfonk;12;emsal;character varying
+kentrehberi_planfonk;13;etap_adi;character varying
+kentrehberi_planfonk;14;geo_durum;boolean
+kentrehberi_planfonk;15;kat_adedi;character varying
+kentrehberi_planfonk;16;yukseklik;double precision
+kentrehberi_planfonk;17;min_yukseklik;double precision
+kentrehberi_planfonk;18;maks_yukseklik;double precision
+kentrehberi_planfonk;19;poly;USER-DEFINED
+kentrehberi_planfonk;20;arka_bahce;character varying
+kentrehberi_planfonk;21;min_hmaks;character varying
+kentrehberi_planfonk;22;maks_hmaks;character varying
+kentrehberi_planfonk;23;aciklama;character varying
+kentrehberi_planfonk;24;fonksiyon_adi;character varying
+kentrehberi_planfonk;25;plan_notlari;character varying
+kentrehberi_planfonk;26;plan_adi;character varying
+kentrehberi_poi;1;objectid;text
+kentrehberi_poi;2;adi;character varying
+kentrehberi_poi;3;ng_adi;text
+kentrehberi_poi;4;aciklama;character varying
+kentrehberi_poi;5;category;integer
+kentrehberi_poi;6;ustkod;integer
+kentrehberi_poi;7;faaliyet_adi;character varying
+kentrehberi_poi;8;ng_faaliyet_adi;text
+kentrehberi_poi;9;icon;character varying
+kentrehberi_poi;10;gizlilik;boolean
+kentrehberi_poi;11;poly;USER-DEFINED
+kentrehberi_poi;12;adres;character varying
+kentrehberi_poi;13;mahalle_id;integer
+kentrehberi_poi;14;yol_id;integer
+kentrehberi_poi;15;telefon_no;character varying
+kentrehberi_poi;16;kisi;character varying
+kentrehberi_poi;17;onemliyerler;character varying
+kentrehberi_poi;18;geo_durum;boolean
+kentrehberi_tasinmaz;1;objectid;integer
+kentrehberi_tasinmaz;2;poly;USER-DEFINED
+kentrehberi_tasinmaz_belediyeyapi;1;objectid;integer
+kentrehberi_tasinmaz_belediyeyapi;2;poly;USER-DEFINED
+kentrehberi_tasinmaz_bld_psf;1;objectid;integer
+kentrehberi_tasinmaz_bld_psf;2;poly;USER-DEFINED
+kentrehberi_tasinmaz_diger;1;objectid;integer
+kentrehberi_tasinmaz_diger;2;poly;USER-DEFINED
+kentrehberi_tasinmaz_gha;1;objectid;integer
+kentrehberi_tasinmaz_gha;2;poly;USER-DEFINED
+kentrehberi_tasinmaz_islemde;1;objectid;integer
+kentrehberi_tasinmaz_islemde;2;poly;USER-DEFINED
+kentrehberi_tasinmaz_kayitli;1;objectid;integer
+kentrehberi_tasinmaz_kayitli;2;poly;USER-DEFINED
+kentrehberi_tasinmaz_kayitli;3;turu;integer
+kentrehberi_tasinmaz_kayitsiz;1;objectid;integer
+kentrehberi_tasinmaz_kayitsiz;2;poly;USER-DEFINED
+kentrehberi_tasinmaz_km;1;objectid;integer
+kentrehberi_tasinmaz_km;2;poly;USER-DEFINED
+kentrehberi_tasinmaz_km;3;turu;integer
+kentrehberi_tasinmaz_sah;1;objectid;integer
+kentrehberi_tasinmaz_sah;2;poly;USER-DEFINED
+kentrehberi_tumisler;1;objectid;integer
+kentrehberi_tumisler;2;tablo_oid;integer
+kentrehberi_tumisler;3;tablo;text
+kentrehberi_tumisler;4;mudurluk;text
+kentrehberi_tumisler;5;isin_durumu;character varying
+kentrehberi_tumisler;6;bas_tarihi;date
+kentrehberi_tumisler;7;bitis_tarihi;date
+kentrehberi_tumisler;8;aciklama;character varying
+kentrehberi_tumisler;9;geo_durum;boolean
+kentrehberi_tumisler;10;poly;USER-DEFINED
+kentrehberi_tumisler;11;mahalle_id;integer
+kentrehberi_tumisler;12;is_turu_id;integer
+kentrehberi_tumisler;13;is_adi;character varying
+kentrehberi_tumisler;14;is_turu_adi;character varying
+kentrehberi_tumisler;15;user_create_n;character varying
+kentrehberi_tumisler;16;yil;integer
+kentrehberi_yapi;1;objectid;integer
+kentrehberi_yapi;2;yapi_adi;character varying
+kentrehberi_yapi;3;ng_yapi_adi;text
+kentrehberi_yapi;4;tabanalani;real
+kentrehberi_yapi;5;katadedi;integer
+kentrehberi_yapi;6;normal_kat;integer
+kentrehberi_yapi;7;bodrum_kat;integer
+kentrehberi_yapi;8;cati_kati;integer
+kentrehberi_yapi;9;aciklama;character varying
+kentrehberi_yapi;10;poly;USER-DEFINED
+kentrehberi_yapi;11;site_adi;character varying
+kentrehberi_yapi;12;ng_site_adi;text
+kentrehberi_yapi;13;geo_durum;boolean
+kentrehberi_yapi;14;m_date;timestamp with time zone
+kentrehberi_yol;1;objectid;integer
+kentrehberi_yol;2;yol_adi;text
+kentrehberi_yol;3;yol_turu;character varying
+kentrehberi_yol;4;eski_yol_adi;character varying
+kentrehberi_yol;5;mahalle_adi;character varying
+kentrehberi_yol;6;poly;USER-DEFINED
+kentrehberi_yol;7;uzunluk;double precision
+kentrehberi_yol;8;mahalle_id;integer
+kentrehberi_yol;9;uavt_kod;integer
+geomahalle;1;objectid;integer
+geomahalle;2;ilce_id;bigint
+geomahalle;3;belde_id;bigint
+geomahalle;4;koy_id;bigint
+geomahalle;5;uavt_kod;bigint
+geomahalle;6;nufus;integer
+geomahalle;7;tanitim_no;integer
+geomahalle;8;mahalle_alan;double precision
+geomahalle;9;adi_numarasi;character varying
+geomahalle;10;muhtar_adi;character varying
+geomahalle;11;muhtar_telefon;character varying
+geomahalle;12;aciklama;character varying
+geomahalle;13;muhtar_faks;character varying
+geomahalle;14;muhtar_adres;character varying
+geomahalle;15;mahalle_tipi;character varying
+geomahalle;16;yetkiliidare_id;character varying
+geomahalle;17;geo_durum;boolean
+geomahalle;18;m_date;timestamp with time zone
+geomahalle;19;m_status;character varying
+geomahalle;20;m_log_user;character varying
+geomahalle;21;user_create;integer
+geomahalle;22;user_create_n;character varying
+geomahalle;23;user_modify;integer
+geomahalle;24;user_modify_n;character varying
+geomahalle;25;poly;USER-DEFINED
+geomahalle;26;nc_alani;numeric
+geomahalle;27;nc_ilceref;integer
+geomahalle;28;nc_tanitimkodu;character varying
+geomahalle;29;nc_postakodu;character varying
+geomahalle;30;nc_tapumahallekodu;integer
+geomahalle;31;nc_uavtkod;integer
+geomahalle;32;nc_konumu;integer
+geomahalle;33;nc_user_log;character varying
+geomahalle;34;nc_nufus_2014;integer
+geomahalle;35;nc_nufus_2015;integer
+geomahalle;36;nc_nufus_degisimi;integer
+geomahalle;37;nc_globalid;bytea
+geomahalle;38;nc_guid;character varying
+geomahalle;39;nc_featureid;integer

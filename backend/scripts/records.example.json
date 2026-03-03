@@ -1,0 +1,12 @@
+[
+  {
+    "id": "kentrehberi_parklar",
+    "text": "TABLE: kentrehberi_parklar\nTYPE: spatial polygon layer (Parklar)\nDESCRIPTION:\nKent rehberi park verisi.\nGEOMETRY:\n- Geometry column: geom\n- Geometry type: Polygon",
+    "metadata": { "table_name": "kentrehberi_parklar", "geom": "polygon" }
+  },
+  {
+    "id": "kentrehberi_yollar",
+    "text": "TABLE: kentrehberi_yollar\nTYPE: spatial line layer (Yollar)\nDESCRIPTION:\nKent rehberi yol/ cadde verisi.\nGEOMETRY:\n- Geometry column: geom\n- Geometry type: LineString",
+    "metadata": { "table_name": "kentrehberi_yollar", "geom": "line" }
+  }
+]
