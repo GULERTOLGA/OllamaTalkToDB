@@ -6,7 +6,8 @@
     "dev": "tsx watch src/index.ts",
     "build": "tsc",
     "start": "node dist/index.js",
-    "pinecone:insert": "tsx scripts/insert-vectors.ts"
+    "pinecone:insert": "tsx scripts/insert-vectors.ts",
+    "pinecone:generate": "tsx scripts/generate-pinecone-records.ts"
   },
   "dependencies": {
     "@pinecone-database/pinecone": "^4.0.0",

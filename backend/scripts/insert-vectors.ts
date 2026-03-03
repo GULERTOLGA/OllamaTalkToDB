@@ -9,12 +9,13 @@ import 'dotenv/config';
  *   PINECONE_INDEX_NAME - Index adı
  *
  * Opsiyonel env:
- *   PINECONE_NAMESPACE - Namespace (varsayılan: "")
- *   RECORDS_FILE       - Record JSON dosyası yolu (yoksa SAMPLE_COUNT kadar örnek üretilir)
- *   SAMPLE_COUNT       - Örnek record sayısı (RECORDS_FILE yoksa, varsayılan: 5)
+ *   PINECONE_NAMESPACE - Namespace (varsayılan: ""; 2025-04 öncesi API'de __default__ kullanılamaz)
+ *   RECORDS_FILE       - Record JSON dosyası yolu (varsayılan: script ile aynı dizindeki pinecone-records.json)
+ *   SAMPLE_COUNT       - Örnek record sayısı (dosya yoksa ve RECORDS_FILE set edilmemişse, varsayılan: 5)
  *
  * Kullanım:
- *   RECORDS_FILE=./records.json npm run pinecone:insert
+ *   cd backend && npm run pinecone:insert   # pinecone-records.json kullanır (generate-pinecone-records ile üretilmiş)
+ *   RECORDS_FILE=./farkli.json npm run pinecone:insert
  *
  *   Record dosyası formatı:
  *     [
@@ -25,7 +26,10 @@ import 'dotenv/config';
 
 import { Pinecone } from '@pinecone-database/pinecone';
 import { readFile } from 'node:fs/promises';
-import { resolve } from 'node:path';
+import { resolve, dirname } from 'node:path';
+import { fileURLToPath } from 'node:url';
+
+const __dirname = dirname(fileURLToPath(import.meta.url));
 
 const BATCH_SIZE = 100;
 
@@ -98,20 +102,28 @@ async function loadRecordsFromFile(filePath: string): Promise<TextRecord[]> {
   return data as TextRecord[];
 }
 
+/** generate-pinecone-records.ts ile üretilen dosyanın varsayılan yolu */
+const DEFAULT_RECORDS_FILE = resolve(__dirname, 'pinecone-records.json');
+
 async function main() {
   const apiKey = getEnv('PINECONE_API_KEY');
   const indexName = getEnv('PINECONE_INDEX_NAME');
-  const namespace = getEnvOptional('PINECONE_NAMESPACE', '__default__');
-  const recordsFile = process.env.RECORDS_FILE ?? process.env.VECTORS_FILE;
+  const namespace = getEnvOptional('PINECONE_NAMESPACE', '');
+  const recordsFile = process.env.RECORDS_FILE ?? process.env.VECTORS_FILE ?? DEFAULT_RECORDS_FILE;
   const sampleCount = parseInt(process.env.SAMPLE_COUNT ?? '5', 10);
 
   let records: TextRecord[];
-  if (recordsFile) {
+  try {
     console.log('Records dosyadan yükleniyor:', recordsFile);
     records = await loadRecordsFromFile(recordsFile);
-  } else {
-    console.log(`Örnek record'lar üretiliyor: count=${sampleCount}`);
-    records = sampleRecords(sampleCount);
+  } catch (fileErr) {
+    const noFile = (fileErr as NodeJS.ErrnoException)?.code === 'ENOENT' || (fileErr as Error)?.message?.includes('ENOENT');
+    if (noFile && (process.env.RECORDS_FILE ?? process.env.VECTORS_FILE) === undefined) {
+      console.log('pinecone-records.json bulunamadı, örnek record\'lar üretiliyor:', (fileErr as Error).message);
+      records = sampleRecords(sampleCount);
+    } else {
+      throw fileErr;
+    }
   }
 
   if (records.length === 0) {
