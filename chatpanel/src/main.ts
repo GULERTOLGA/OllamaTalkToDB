@@ -1,4 +1,6 @@
 const ROOT_ID = 'nc_chatpanel_root';
+const BOOTSTRAP_CSS_URL =
+  'https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css';
 
 let activeMapInstanceName: string | null = null;
 
@@ -72,6 +74,8 @@ type N8nGeoJsonResponse = {
   ok?: boolean;
   source?: string;
   geojson?: GeoJsonFeatureCollection;
+  record_count?: unknown;
+  message?: unknown;
 };
 
 function collectLngLatPairsFromCoordinates(coords: unknown, out: Array<[number, number]>): void {
@@ -176,7 +180,18 @@ function addGeoJsonToMap(geojson: GeoJsonFeatureCollection): void {
   fitMapToGeoJson(map, geojson);
 }
 
-async function postChatToN8n(proxyUrl: string, chatInput: string): Promise<void> {
+function parseAssistantText(payload: N8nGeoJsonResponse | null, rawText: string): string {
+  if (payload && typeof payload.record_count === 'number' && Number.isFinite(payload.record_count)) {
+    return `Sorgulama sonucunda ${payload.record_count} kayıt bulundu.`;
+  }
+  if (payload && typeof payload.message === 'string' && payload.message.trim()) {
+    return payload.message.trim();
+  }
+  if (rawText.trim()) return rawText.trim();
+  return 'Yanıt alındı.';
+}
+
+async function postChatToN8n(proxyUrl: string, chatInput: string): Promise<string> {
   const fd = new FormData();
   fd.append('chatInput', chatInput);
   const res = await fetch(proxyUrl, { method: 'POST', body: fd });
@@ -196,21 +211,30 @@ async function postChatToN8n(proxyUrl: string, chatInput: string): Promise<void>
   if (maybe?.ok && maybe.geojson?.type === 'FeatureCollection') {
     addGeoJsonToMap(maybe.geojson);
   }
+
+  return parseAssistantText(maybe, raw);
 }
 
-function injectStyles(): void {
-  const id = 'nc_chatpanel_styles';
-  if (document.getElementById(id)) return;
+function injectStyles(target: ShadowRoot): void {
+  if (!target.getElementById('nc_chatpanel_bootstrap_css')) {
+    const link = document.createElement('link');
+    link.id = 'nc_chatpanel_bootstrap_css';
+    link.rel = 'stylesheet';
+    link.href = BOOTSTRAP_CSS_URL;
+    target.appendChild(link);
+  }
+
+  if (target.getElementById('nc_chatpanel_styles')) return;
   const style = document.createElement('style');
-  style.id = id;
+  style.id = 'nc_chatpanel_styles';
   style.textContent = `
-    .nc_chatpanel_root {
+    :host {
       position: fixed;
       right: 16px;
       bottom: 16px;
       z-index: 99999;
       width: min(380px, calc(100vw - 32px));
-      max-height: min(520px, calc(100vh - 32px));
+      max-height: min(680px, calc(100vh - 24px));
       display: flex;
       flex-direction: column;
       border-radius: 12px;
@@ -222,15 +246,11 @@ function injectStyles(): void {
     }
     .nc_chatpanel_header {
       flex-shrink: 0;
-      padding: 10px 12px;
-      background: #0d6efd;
-      color: #fff;
       font-weight: 600;
-      font-size: 0.95rem;
     }
     .nc_chatpanel_messages {
       flex: 1;
-      min-height: 180px;
+      min-height: 300px;
       padding: 12px;
       overflow-y: auto;
       background: #f8f9fa;
@@ -244,76 +264,122 @@ function injectStyles(): void {
     }
     .nc_chatpanel_form {
       flex-shrink: 0;
-      display: flex;
-      gap: 8px;
-      padding: 10px 12px;
       border-top: 1px solid #dee2e6;
       background: #fff;
     }
-    .nc_chatpanel_input {
-      flex: 1;
-      border: 1px solid #ced4da;
-      border-radius: 8px;
+    .nc_chatpanel_msg {
+      max-width: 88%;
+      margin-bottom: 8px;
       padding: 8px 10px;
-      font-size: 0.875rem;
-      outline: none;
+      border-radius: 12px;
+      font-size: 0.86rem;
+      line-height: 1.4;
+      word-break: break-word;
+      white-space: pre-wrap;
     }
-    .nc_chatpanel_input:focus {
-      border-color: #0d6efd;
-      box-shadow: 0 0 0 2px rgba(13, 110, 253, 0.2);
-    }
-    .nc_chatpanel_send {
-      flex-shrink: 0;
-      padding: 8px 14px;
-      border: none;
-      border-radius: 8px;
+    .nc_chatpanel_msg_user {
+      margin-left: auto;
       background: #0d6efd;
       color: #fff;
-      font-weight: 600;
-      font-size: 0.875rem;
-      cursor: pointer;
+      border-bottom-right-radius: 4px;
     }
-    .nc_chatpanel_send:hover {
-      background: #0b5ed7;
+    .nc_chatpanel_msg_ai {
+      margin-right: auto;
+      background: #ffffff;
+      color: #212529;
+      border: 1px solid #dee2e6;
+      border-bottom-left-radius: 4px;
+    }
+    .nc_chatpanel_typing {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      min-height: 16px;
+    }
+    .nc_chatpanel_typing_dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: #6c757d;
+      animation: nc_chatpanel_dot_bounce 1.2s infinite ease-in-out;
+    }
+    .nc_chatpanel_typing_dot:nth-child(2) {
+      animation-delay: 0.15s;
+    }
+    .nc_chatpanel_typing_dot:nth-child(3) {
+      animation-delay: 0.3s;
+    }
+    @keyframes nc_chatpanel_dot_bounce {
+      0%, 80%, 100% { transform: scale(0.7); opacity: 0.45; }
+      40% { transform: scale(1); opacity: 1; }
     }
   `;
-  document.head.appendChild(style);
+  target.appendChild(style);
 }
 
 function createPanelMarkup(): string {
   return `
-    <div class="nc_chatpanel_header">Keos AI</div>
+    <div class="nc_chatpanel_header bg-primary text-white px-3 py-2">Keos AI</div>
     <div class="nc_chatpanel_messages" id="nc_chatpanel_messages">
       
     </div>
-    <form class="nc_chatpanel_form" id="nc_chatpanel_form" autocomplete="off">
-      <input class="nc_chatpanel_input" id="nc_chatpanel_input" type="text" placeholder="Mesaj yazın…" />
-      <button class="nc_chatpanel_send" type="submit">Gönder</button>
+    <form class="nc_chatpanel_form p-2" id="nc_chatpanel_form" autocomplete="off">
+      <div class="input-group input-group-sm">
+        <input class="form-control" id="nc_chatpanel_input" type="text" placeholder="Mesaj yazın…" />
+        <button class="btn btn-primary" type="submit">Gönder</button>
+      </div>
     </form>
   `;
 }
 
-function bindForm(root: HTMLElement, n8nProxyUrl: string): void {
-  const form = root.querySelector<HTMLFormElement>('#nc_chatpanel_form');
-  const input = root.querySelector<HTMLInputElement>('#nc_chatpanel_input');
-  const messages = root.querySelector<HTMLElement>('#nc_chatpanel_messages');
+function bindForm(scope: ParentNode, n8nProxyUrl: string): void {
+  const form = scope.querySelector<HTMLFormElement>('#nc_chatpanel_form');
+  const input = scope.querySelector<HTMLInputElement>('#nc_chatpanel_input');
+  const messages = scope.querySelector<HTMLElement>('#nc_chatpanel_messages');
   if (!form || !input || !messages) return;
+
+  const appendMessage = (kind: 'user' | 'ai', textOrNode: string | Node): HTMLElement => {
+    const bubble = document.createElement('div');
+    bubble.className = `nc_chatpanel_msg ${kind === 'user' ? 'nc_chatpanel_msg_user' : 'nc_chatpanel_msg_ai'}`;
+    if (typeof textOrNode === 'string') {
+      bubble.textContent = textOrNode;
+    } else {
+      bubble.appendChild(textOrNode);
+    }
+    messages.appendChild(bubble);
+    messages.scrollTop = messages.scrollHeight;
+    return bubble;
+  };
 
   form.addEventListener('submit', (e) => {
     e.preventDefault();
     const text = input.value.trim();
     if (!text) return;
-    const line = document.createElement('div');
-    line.className = 'nc_chatpanel_msg_line';
-    line.style.marginBottom = '8px';
-    line.textContent = text;
-    messages.appendChild(line);
-    messages.scrollTop = messages.scrollHeight;
+    appendMessage('user', text);
     input.value = '';
+    input.disabled = true;
 
-    void postChatToN8n(n8nProxyUrl, text).catch((err) => {
-      console.error('[chatpanel] n8n istek hatası', err);
-    });
+    const typing = document.createElement('span');
+    typing.className = 'nc_chatpanel_typing';
+    typing.innerHTML = `
+      <span class="nc_chatpanel_typing_dot"></span>
+      <span class="nc_chatpanel_typing_dot"></span>
+      <span class="nc_chatpanel_typing_dot"></span>
+    `;
+    const aiBubble = appendMessage('ai', typing);
+
+    void postChatToN8n(n8nProxyUrl, text)
+      .then((assistantText) => {
+        aiBubble.textContent = assistantText;
+      })
+      .catch((err) => {
+        console.error('[chatpanel] n8n istek hatası', err);
+        aiBubble.textContent = 'Sorgu sırasında hata oluştu.';
+      })
+      .finally(() => {
+        input.disabled = false;
+        input.focus();
+      });
   });
 }
 
@@ -329,15 +395,18 @@ export function initChatPanel(options: ChatPanelOptions = {}): HTMLElement {
     return root;
   }
 
-  injectStyles();
   root = document.createElement('div');
   root.id = ROOT_ID;
   root.className = 'nc_chatpanel_root';
   root.setAttribute('data-nc-chatpanel', 'true');
   if (mapName) root.setAttribute('data-nc-map-instance', mapName);
-  root.innerHTML = createPanelMarkup();
+  const shadow = root.attachShadow({ mode: 'open' });
+  injectStyles(shadow);
+  const panelWrap = document.createElement('div');
+  panelWrap.innerHTML = createPanelMarkup();
+  shadow.appendChild(panelWrap);
   container.appendChild(root);
-  bindForm(root, n8nProxyUrl);
+  bindForm(shadow, n8nProxyUrl);
   return root;
 }
 
