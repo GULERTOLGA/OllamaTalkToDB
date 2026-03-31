@@ -124,6 +124,46 @@ function fitMapToGeoJson(map: any, geojson: GeoJsonFeatureCollection): void {
   });
 }
 
+function startGeoJsonPulseAnimation(map: any, layerPrefix: string): void {
+  const state = (map.__ncChatPanelAnim as { rafId?: number } | undefined) ?? {};
+  if (typeof state.rafId === 'number') {
+    cancelAnimationFrame(state.rafId);
+  }
+
+  const layerFill = `${layerPrefix}fill`;
+  const layerLine = `${layerPrefix}line`;
+  const layerPoint = `${layerPrefix}point`;
+  const t0 = performance.now();
+
+  const tick = () => {
+    const phase = ((performance.now() - t0) / 1000) * Math.PI * 2 * 0.55;
+    const wave = 0.5 + 0.5 * Math.sin(phase); // 0..1
+
+    const fillOpacity = 0.15 + wave * 0.2; // 0.15..0.35
+    const lineOpacity = 0.45 + wave * 0.45; // 0.45..0.90
+    const pointOpacity = 0.5 + wave * 0.5; // 0.5..1
+
+    try {
+      if (map.getLayer?.(layerFill)) {
+        map.setPaintProperty(layerFill, 'fill-opacity', fillOpacity);
+      }
+      if (map.getLayer?.(layerLine)) {
+        map.setPaintProperty(layerLine, 'line-opacity', lineOpacity);
+      }
+      if (map.getLayer?.(layerPoint)) {
+        map.setPaintProperty(layerPoint, 'circle-opacity', pointOpacity);
+      }
+      state.rafId = requestAnimationFrame(tick);
+      map.__ncChatPanelAnim = state;
+    } catch {
+      // Harita dispose edilmiş olabilir; döngüyü sessizce sonlandır.
+    }
+  };
+
+  state.rafId = requestAnimationFrame(tick);
+  map.__ncChatPanelAnim = state;
+}
+
 function addGeoJsonToMap(geojson: GeoJsonFeatureCollection): void {
   const map = getRegisteredMap() as any;
   if (!map || typeof map.addSource !== 'function') return;
@@ -134,6 +174,7 @@ function addGeoJsonToMap(geojson: GeoJsonFeatureCollection): void {
   const existing = map.getSource?.(sourceId);
   if (existing && typeof existing.setData === 'function') {
     existing.setData(geojson);
+    startGeoJsonPulseAnimation(map, layerPrefix);
     fitMapToGeoJson(map, geojson);
     return;
   }
@@ -177,6 +218,7 @@ function addGeoJsonToMap(geojson: GeoJsonFeatureCollection): void {
     },
   });
 
+  startGeoJsonPulseAnimation(map, layerPrefix);
   fitMapToGeoJson(map, geojson);
 }
 
