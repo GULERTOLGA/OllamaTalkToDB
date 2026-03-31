@@ -1,0 +1,9 @@
+ngrok http 11434 --domain=unsplendourous-unflying-jada.ngrok-free.dev --authtoken 32sOiV6C0VI6ykm0EZhX6eOb49n_6j7bwdPAtqc9Ga3cVs8Bf
+ --host-header="localhost:11434" 
+ssh test@192.168.1.143
+ntc123**
+
+npm run dev:backend
+
+ ngrok http 3001 --domain=ollama.ngrok.app
+599908

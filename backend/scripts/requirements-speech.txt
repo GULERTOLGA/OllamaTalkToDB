@@ -1,0 +1,5 @@
+# Ses → metin (isteğe bağlı; birini veya ikisini kurun)
+# Apple Silicon + MLX:
+mlx-whisper>=0.4.0
+# CPU yedek:
+faster-whisper>=1.0.0

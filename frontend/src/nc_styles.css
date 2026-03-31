@@ -161,3 +161,213 @@
   border-color: #f5c2c7;
   color: #842029;
 }
+
+/* Pinecone Arama sekmesi */
+.nc_pinecone_card {
+  margin-bottom: 1rem;
+}
+
+.nc_pinecone_body {
+  padding: 1rem;
+}
+
+.nc_pinecone_label {
+  font-weight: 500;
+}
+
+.nc_pinecone_input {
+  max-width: 100%;
+}
+
+.nc_pinecone_topk {
+  max-width: 6rem;
+}
+
+.nc_pinecone_rerank_check {
+  font-weight: 500;
+}
+
+.nc_pinecone_rerank_hint {
+  display: block;
+  margin-top: 0.25rem;
+  font-size: 0.8rem;
+}
+
+.nc_pinecone_rerank_topn {
+  max-width: 8rem;
+}
+
+.nc_pinecone_error {
+  padding: 0.75rem 1rem;
+  background: #f8d7da;
+  border: 1px solid #f5c2c7;
+  border-radius: 0.5rem;
+  color: #842029;
+}
+
+.nc_pinecone_results .nc_pinecone_label {
+  display: block;
+  margin-bottom: 0.5rem;
+}
+
+.nc_pinecone_hits {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  max-height: 60vh;
+  overflow-y: auto;
+}
+
+.nc_pinecone_hit {
+  padding: 0.75rem 1rem;
+  background: var(--bs-light);
+  border: 1px solid var(--bs-border-color);
+  border-radius: 0.5rem;
+}
+
+.nc_pinecone_hit_header {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem 1rem;
+  margin-bottom: 0.5rem;
+  font-size: 0.875rem;
+}
+
+.nc_pinecone_hit_id {
+  font-weight: 600;
+}
+
+.nc_pinecone_hit_score {
+  color: var(--bs-secondary);
+}
+
+.nc_pinecone_hit_meta {
+  color: var(--bs-body-color);
+  opacity: 0.9;
+}
+
+.nc_pinecone_hit_text {
+  font-size: 0.875rem;
+  line-height: 1.5;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+/* Ses → Metin */
+.nc_speech_card {
+  margin-bottom: 1rem;
+}
+
+.nc_speech_body {
+  padding: 1rem;
+}
+
+.nc_speech_hint {
+  margin-bottom: 0.75rem;
+}
+
+.nc_speech_actions {
+  margin-bottom: 0.5rem;
+}
+
+.nc_speech_record_btn,
+.nc_speech_stop_btn {
+  min-width: 10rem;
+}
+
+.nc_speech_recording_badge {
+  animation: nc_speech_pulse 1s ease-in-out infinite;
+}
+
+@keyframes nc_speech_pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.45;
+  }
+}
+
+.nc_speech_error {
+  padding: 0.75rem 1rem;
+  background: #f8d7da;
+  border: 1px solid #f5c2c7;
+  border-radius: 0.5rem;
+  color: #842029;
+}
+
+.nc_speech_label {
+  display: block;
+  margin-bottom: 0.25rem;
+}
+
+.nc_speech_text {
+  padding: 0.75rem 1rem;
+  background: var(--bs-light);
+  border: 1px solid var(--bs-border-color);
+  border-radius: 0.5rem;
+  white-space: pre-wrap;
+  word-break: break-word;
+  min-height: 4rem;
+}
+
+/* Tam ekran harita sayfası */
+.nc_map_page {
+  width: 100vw;
+  height: 100vh;
+  position: relative;
+  overflow: hidden;
+}
+
+.nc_map_container {
+  width: 100%;
+  height: 100%;
+}
+
+.nc_map_toolbar {
+  position: absolute;
+  top: 1rem;
+  left: 1rem;
+  z-index: 10;
+  display: flex;
+  gap: 0.75rem;
+  align-items: center;
+  padding: 0.5rem 0.75rem;
+  border-radius: 0.5rem;
+  background: rgba(255, 255, 255, 0.92);
+  border: 1px solid var(--bs-border-color);
+  backdrop-filter: blur(2px);
+}
+
+.nc_map_back_btn {
+  text-decoration: none;
+  font-weight: 600;
+}
+
+.nc_map_title {
+  font-weight: 600;
+  color: #1f2937;
+}
+
+.nc_map_satellite_toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  margin: 0;
+  padding-left: 0.5rem;
+  border-left: 1px solid var(--bs-border-color);
+  cursor: pointer;
+  user-select: none;
+  font-size: 0.9rem;
+}
+
+.nc_map_satellite_checkbox {
+  margin: 0;
+  cursor: pointer;
+}
+
+.nc_map_satellite_label {
+  font-weight: 500;
+  color: #374151;
+}

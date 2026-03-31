@@ -17,6 +17,8 @@ npm install
 # Backend ve frontend için ayrı ayrı
 cd backend && npm install
 cd ../frontend && npm install
+# Chat panel paketi (isteğe bağlı)
+cd ../chatpanel && npm install
 ```
 
 ## Çalıştırma
@@ -42,6 +44,40 @@ cd ../frontend && npm install
 npm run dev
 ```
 
+### Chat panel (haritada gömülü)
+
+`chatpanel/` ayrı bir **TypeScript + Vite** paketidir; tek dosya **IIFE** (`dist/chat-panel.js`) üretir ve herhangi bir sayfada `<script src="...">` ile yüklenebilir. Panel, sayfanın **sağ alt köşesinde** sabitlenir.
+
+| Ne | Açıklama |
+|----|----------|
+| Geliştirme sunucusu | Port **5174** (`cd chatpanel && npm run dev`) |
+| Kökten | `npm run dev:chatpanel` |
+| Üretim paketi | `cd chatpanel && npm run build` → `chatpanel/dist/chat-panel.js` |
+
+**Harita sayfası:** `http://localhost:5173/map?chat=true` adresinde `MapPage`, `frontend/public/chat-panel.js` dosyasını yükleyerek paneli açar; **`chat=true` yoksa** chat panel yüklenmez (sadece harita). İsteğe bağlı sorgu parametresi **`mapInstance`**: harita `maplibregl.Map` örneği `window.__ncMapRegistry__[mapInstance]` altına konur (varsayılan ad: `alanyaMap`). Chat panel aynı adı `data-map-instance` ve `ChatPanel.getMapInstanceName()` ile bilir. Örnek: `/map?chat=true&mapInstance=myMap`. Gönder ile metin, backend **`POST /api/n8n`** (form-data `chatInput`) üzerinden n8n’e iletilir; yanıt şimdilik tarayıcı **konsoluna** yazılır. Yerel proxy varsayılanı: `http://localhost:3001/api/n8n`. Frontend’de `VITE_N8N_PROXY_URL` ile değiştirilebilir. Panel kodunu `chatpanel` içinde değiştirdikten sonra dosyayı `public` altına kopyalayın:
+
+```bash
+cd chatpanel
+npm run build:embed
+```
+
+(`build` + `frontend/public/chat-panel.js` kopyası)
+
+**Başka bir sitede / statik HTML’de manuel gömme:**
+
+```html
+<script src="https://sunucu-adresiniz/chat-panel.js" data-map-instance="myMap"></script>
+```
+
+Harita örneğine kod tarafında `window.__ncMapRegistry__.myMap` (veya seçtiğiniz ad) ile erişin; panel `window.ChatPanel.getMapInstanceName()` ile aynı adı okuyabilir. Panel içinden harita ile çalışmak için: `window.ChatPanel.getRegisteredMap()` (kayıtlı `maplibregl.Map`), isteğe bağlı `window.ChatPanel.getMaplibre()` veya doğrudan `window.maplibregl` (bu projede `MapPage` atar).
+
+Otomatik yükleme istemezseniz:
+
+```html
+<script src="https://sunucu-adresiniz/chat-panel.js" data-auto-init="false"></script>
+<script>window.ChatPanel?.init();</script>
+```
+
 ## Proje Yapısı
 
 ```
@@ -50,6 +86,7 @@ npm run dev
 │       └── types.ts
 ├── backend/         # Express API, Ollama proxy
 ├── frontend/        # React + TypeScript + Vite + Bootstrap
+├── chatpanel/       # Gömülebilir sohbet paneli (IIFE bundle, ayrı port ile dev)
 ```
 
 ## Model Değiştirme
@@ -57,6 +94,61 @@ npm run dev
 Üst menüdeki dropdown'dan farklı modeller seçebilirsiniz. Ollama'da mevcut modelleri görmek için: `ollama list`
 
 ---
+
+## Ses → Metin (Speech-to-text)
+
+Uygulamada **Ses → Metin** sekmesiyle tarayıcıdan mikrofonla kayıt alınır; ses dosyası backend’e yüklenir ve **açık kaynak Whisper** tabanlı transkripsiyonla metne çevrilir.
+
+### Backend
+
+- **POST** `/api/speech-to-text` — `multipart/form-data`, alan adı: **`audio`** (ses dosyası)
+- Sunucu `backend/scripts/transcribe_audio.py` ile çalıştırır:
+  - **Öncelik (Apple Silicon + MLX):** `mlx-whisper` — `pip install mlx-whisper`
+  - **Yedek (CPU):** `faster-whisper` — `pip install faster-whisper`
+- Çoğu formatta decode için sistemde **ffmpeg** bulunması önerilir.
+- Opsiyonel ortam değişkenleri:
+  - `PYTHON_BIN` — Python yolu (varsayılan `python3`)
+  - `WHISPER_BACKEND` — `auto` \| `mlx` \| `faster` (varsayılan `auto`)
+  - `WHISPER_LANGUAGE` — Whisper dil kodu (varsayılan `tr`; otomatik algılama için `auto`)
+  - `MLX_WHISPER_MODEL` — varsayılan `mlx-community/whisper-small-mlx` (Apple Silicon’da Türkçe için uygun denge)
+  - `FASTER_WHISPER_MODEL` — varsayılan `small` (`faster-whisper` MPS kullanmaz; Mac’te hız için öncelikle MLX)
+  - `FASTER_WHISPER_DEVICE` / `FASTER_WHISPER_COMPUTE` — yedek motor için (örn. `cpu`, `int8`)
+
+Örnek:
+
+```bash
+pip install mlx-whisper
+# veya
+pip install faster-whisper
+```
+
+---
+
+## DB Şema API (PostgreSQL)
+
+Backend, PostgreSQL’e bağlanıp verilen tablo isimleri için şema (kolon listesi) döndüren bir endpoint içerir.
+
+### Endpoint
+
+- **POST** `/api/db/schema`
+- **Body**
+  - `tables`: `string[]` (zorunlu) — `["public.geomahalle", "kentrehberi_yol"]` gibi
+  - `defaultSchema`: `string` (opsiyonel, varsayılan `public`) — şemasız isimler için kullanılacak şema
+
+### Örnek istek
+
+```bash
+curl -X POST http://localhost:3001/api/db/schema \
+  -H 'Content-Type: application/json' \
+  -d '{"tables":["geomahalle","public.kentrehberi_yol"],"defaultSchema":"public"}'
+```
+
+### DB bağlantısı (env)
+
+`backend/.env` içinde aşağıdakilerden birini tanımlayın:
+
+- `DATABASE_URL=postgres://user:pass@host:5432/dbname`
+- veya `PGHOST`, `PGPORT`, `PGDATABASE`, `PGUSER`, `PGPASSWORD`
 
 ## Pinecone Script'leri (Tablo Şeması → Vektör Index)
 
@@ -143,3 +235,30 @@ cd backend && npm run pinecone:generate
 # 3) Üretilen JSON'u Pinecone index'ine yükle
 cd backend && npm run pinecone:insert
 ```
+
+---
+
+### 3. Pinecone Arama ve Rerank
+
+Uygulamada **Pinecone Arama** sekmesiyle index içinde metin araması yapılır. Arama isteği `POST /api/pinecone/search` ile gider; sonuçlar isteğe bağlı olarak **yerel rerank** ile yeniden sıralanır.
+
+**Rerank nedir?**  
+Önce Pinecone vektör benzerliğine göre ilk N sonuç alınır; ardından bu sonuçlar **cross-encoder** (bge-reranker) ile sorguya göre yeniden skorlanıp sıralanır. Böylece ilk sıralar daha isabetli olur.
+
+**Nasıl çalışır?**
+
+- **Rerank kapalı:** Sadece Pinecone’un döndürdüğü sıra kullanılır.
+- **Rerank açık:** Backend, Pinecone sonuçlarını alır; her döküman metnini 1024 token sınırına uyması için kısaltır (≈2400 karakter), sonra **TypeScript** içinde **@huggingface/transformers** ile `Xenova/bge-reranker-base` modelini çalıştırarak skorları hesaplar ve sonuçları bu skora göre sıralar.
+
+**Neden yerel rerank?**  
+Pinecone’un sunucu tarafı rerank’ı (bge-reranker-v2-m3) sorgu+döküman için **1024 token** sınırına takılır; tablo açıklamaları uzun olduğu için 400 hatası alınır. Yerel rerank’ta metinler kısaltıldığı için bu sınır aşılmaz.
+
+**Gereksinimler:**
+
+- Rerank kullanacaksanız backend’de `@huggingface/transformers` (projede zaten var) yeterli; **Python veya sentence-transformers gerekmez.**
+- İlk çalıştırmada model indirilir; sonra tamamen lokal çalışır.
+
+**Arayüzde:**
+
+- **Rerank kullan** kutusu işaretliyse arama sonuçları yerel rerank ile sıralanır.
+- **Rerank sonuç sayısı (top_n)** ile kaç sonucun bu sıralamaya göre döneceği seçilir.

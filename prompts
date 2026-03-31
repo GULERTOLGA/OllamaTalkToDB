@@ -62,3 +62,23 @@ INFERENCE RULES
 
 INPUT
 <PASTE THE SCHEMA LINES HERE EXACTLY AS PROVIDED BY USER>
+
+
+{
+  "model": "qwen2.5:7b",
+  "messages": [
+    {
+      "role": "system",
+      "content": "Görev: Kullanıcı sorgusundan yalnızca aşağıdaki listede bulunan tablo adlarını çıkar.\n\nTablolar:\n- geomahalle: mahalle sınırı ve mahalle bilgileri\n- kentrehberi_yol: cadde, sokak, bulvar ve yol geometrileri\n- kentrehberi_kapi: adres ve kapı numarası bilgileri\n- kentrehberi_yapi: bina, apartman, site ve yapı bilgileri\n- kentrehberi_parsel: kadastro parsel, ada ve pafta bilgileri\n- kentrehberi_planfonk: imar planı fonksiyonları (TAKS, KAKS, emsal, kat)\n- kentrehberi_parklar: park ve yeşil alan bilgileri\n- kentrehberi_parkic: park içindeki alanlar\n- kentrehberi_parkmob: park donatı ve ekipmanları\n- kentrehberi_poi: önemli yerler (eczane, okul, cami, hastane, market vb.)\n- kentrehberi_tasinmaz: genel taşınmaz kayıtları\n- kentrehberi_emlak_arsa: arsa ve mülkiyet bilgileri\n- kentrehberi_emlak_arsa_kat_mulkiyetli: kat mülkiyetli arsa kayıtları\n- kentrehberi_emlak_arsa_kismi_hisse: hisseli arsa kayıtları\n- kentrehberi_emlak_arsa_tam_hisse: tam hisseli arsa kayıtları\n- kentrehberi_emlak_arsa_satildi: satılmış arsa kayıtları\n- kentrehberi_emlak_toplamdeger: taşınmaz toplam değer bilgileri\n- kentrehberi_emlk_kira: kira ve kiracı bilgileri\n- kentrehberi_kira_rapor: kira raporları\n- kentrehberi_kiracilar_bitis: süresi biten kiracılar\n- kentrehberi_fenis: fen işleri faaliyetleri\n- kentrehberi_fenis_biten: tamamlanmış fen işleri\n- kentrehberi_fenis_devameden: devam eden fen işleri\n- kentrehberi_fenis_planlanan: planlanan fen işleri\n- kentrehberi_fenisimalat: fen işleri imalat türleri\n- kentrehberi_geofenisyolyapim: yol yapım çalışmaları\n- kentrehberi_isgal_rapor: yol ve kaldırım işgalleri\n- kentrehberi_katplani: bina kat planları\n- kentrehberi_parkis: park işleri\n- kentrehberi_tasinmaz_belediyeyapi: belediyeye ait yapı taşınmazları\n- kentrehberi_tasinmaz_bld_psf: belediye taşınmazları\n- kentrehberi_tasinmaz_diger: diğer taşınmazlar\n- kentrehberi_tasinmaz_gha: özel taşınmaz sınıfları\n- kentrehberi_tasinmaz_islemde: işlemde olan taşınmazlar\n- kentrehberi_tasinmaz_kayitli: kayıtlı taşınmazlar\n- kentrehberi_tasinmaz_kayitsiz: kayıtsız taşınmazlar\n- kentrehberi_tasinmaz_km: kat mülkiyetli taşınmazlar\n- kentrehberi_tasinmaz_sah: sahiplik bilgili taşınmazlar\n- kentrehberi_tumisler: belediye iş ve faaliyet kayıtları\n\nKurallar:\n1. Yalnızca yukarıdaki tablo adlarını kullanabilirsin\n2. Birden fazla eşleşme varsa sadece virgülle ayırarak yaz\n3. Açıklama yazma\n4. Yorum yapma\n5. Listede olmayan tablo adı uydurma\n6. Çıktı yalnızca tablo adlarından oluşsun\n\nİpuçları:\n- Mahalle adı varsa geomahalle\n- Cadde, sokak, bulvar varsa kentrehberi_yol\n- Kapı numarası veya adres varsa kentrehberi_kapi\n- Bina, apartman, site varsa kentrehberi_yapi\n- Ada veya parsel varsa kentrehberi_parsel veya emlak tabloları\n- Park adı varsa kentrehberi_parklar\n- Eczane, okul, cami, hastane gibi yer adı varsa kentrehberi_poi\n\nÖrnek:\nSorgu: Atatürk mahallesindeki bina sayısı nedir\nÇıktı: geomahalle,kentrehberi_yapi\n\nSorgu: Fatih Caddesi üzerindeki kapılar\nÇıktı: kentrehberi_yol,kentrehberi_kapi"
+    },
+    {
+      "role": "user",
+      "content": "{{ $json.chatInput }}"
+    }
+  ],
+  "stream": false,
+  "options": {
+    "temperature": 0,
+    "num_predict": 20
+  }
+}
