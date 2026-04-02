@@ -237,28 +237,59 @@ type N8nGeoJsonResponse = {
   message?: unknown;
 };
 
-function ncHslToHex(h: number, s: number, l: number): string {
-  const S = s / 100;
-  const L = l / 100;
-  const a = S * Math.min(L, 1 - L);
-  const f = (n: number) => {
-    const k = (n + h / 30) % 12;
-    const c = L - a * Math.max(Math.min(k - 3, 9 - k, 1), -1);
-    return Math.round(255 * c);
-  };
-  const r = f(0);
-  const g = f(8);
-  const b = f(4);
-  return `#${r.toString(16).padStart(2, '0')}${g.toString(16).padStart(2, '0')}${b.toString(16).padStart(2, '0')}`;
-}
-
-/** Kentrehberi POI: faaliyet_adi kategorisi başına renk (50 ton, fazla kategoride döngü). */
-const NC_FAALIYET_PALETTE: readonly string[] = Array.from({ length: 50 }, (_, i) => {
-  const h = Math.round((i * 360) / 50 + (i % 3) * 4) % 360;
-  const s = 68 + (i % 4) * 4;
-  const l = 44 + (i % 5) * 2;
-  return ncHslToHex(h, s, l);
-});
+/** Kentrehberi POI: faaliyet_adi → sabit palet (50 renk, fazla kategoride döngü). */
+const NC_FAALIYET_PALETTE: readonly string[] = [
+  '#FF5733',
+  '#33FF57',
+  '#3357FF',
+  '#F1C40F',
+  '#8E44AD',
+  '#E74C3C',
+  '#2ECC71',
+  '#3498DB',
+  '#E67E22',
+  '#9B59B6',
+  '#1ABC9C',
+  '#F39C12',
+  '#D35400',
+  '#C0392B',
+  '#7F8C8D',
+  '#2C3E50',
+  '#16A085',
+  '#F1948A',
+  '#A569BD',
+  '#5DADE2',
+  '#EC7063',
+  '#48C9B0',
+  '#5499C7',
+  '#AF7AC5',
+  '#F5B041',
+  '#EB984E',
+  '#AAB7B8',
+  '#7D3C98',
+  '#27AE60',
+  '#C71585',
+  '#FF1493',
+  '#4B0082',
+  '#FFD700',
+  '#00CED1',
+  '#9400D3',
+  '#00FF7F',
+  '#DC143C',
+  '#40E0D0',
+  '#8A2BE2',
+  '#FF69B4',
+  '#FF4500',
+  '#00FFFF',
+  '#6B8E23',
+  '#4169E1',
+  '#FF8C00',
+  '#4682B4',
+  '#D2691E',
+  '#20B2AA',
+  '#708090',
+  '#9370DB',
+];
 
 function normalizeFaaliyetAdi(val: unknown): string | null {
   if (val === null || val === undefined) return null;
@@ -292,13 +323,17 @@ function darkenColorForOutline(color: string): string {
 }
 
 /**
- * ['match', ['coalesce', ['get', 'faaliyet_adi'], ['get', 'faaliyet-adi'], ''], k1, c1, ..., default]
+ * ['match', input, k1, c1, ..., default]. Kategori yoksa MapLibre en az bir eşleşme çifti ister;
+ * bu durumda düz renk döner (geçersiz ['match', input, default] kullanılmaz).
  */
 function buildFaaliyetColorMatch(
   categories: string[],
   colorAtIndex: (index: number) => string,
   defaultColor: string,
-): unknown[] {
+): string | unknown[] {
+  if (categories.length === 0) {
+    return defaultColor;
+  }
   const expr: unknown[] = [
     'match',
     ['coalesce', ['get', 'faaliyet_adi'], ['get', 'faaliyet-adi'], ''],
@@ -512,32 +547,65 @@ const NC_GEOJSON_CIRCLE_STROKE_WIDTH = 3;
 /** Stilin glyph’lerinde bulunan fontlar; stilinize göre gerekiyorsa güncelleyin. */
 const NC_GEOJSON_LABEL_FONTS = ['Open Sans Semibold', 'Arial Unicode MS Regular'] as const;
 
+/**
+ * zoom < 17: çakışma kapalı (0–16 arası düşük zoom davranışı).
+ * zoom >= 17: overlap açık (16’dan sonra yakınlaştırma).
+ */
+const NC_GEOJSON_LABEL_OVERLAP_ZOOM_EXPR: unknown[] = ['step', ['zoom'], false, 17, true];
+
+const NC_GEOJSON_LABEL_OVERLAP_LAYOUT: Record<string, unknown> = {
+  'text-allow-overlap': NC_GEOJSON_LABEL_OVERLAP_ZOOM_EXPR,
+  'text-ignore-placement': NC_GEOJSON_LABEL_OVERLAP_ZOOM_EXPR,
+  'text-optional': false,
+};
+
+function applyGeoJsonLabelOverlapLayout(map: any, layerId: string): void {
+  try {
+    if (!map.getLayer?.(layerId)) return;
+    for (const [key, val] of Object.entries(NC_GEOJSON_LABEL_OVERLAP_LAYOUT)) {
+      map.setLayoutProperty(layerId, key, val);
+    }
+  } catch {
+    /* stil yüklenmemiş veya katman yok */
+  }
+}
+
+/** Eski filtre biçimi iç içe ifade kabul etmez; sadece Point. Boş adi text-field ile kalır. */
+const NC_GEOJSON_LABEL_FILTER: ['==', string, string] = ['==', '$type', 'Point'];
+
+const NC_GEOJSON_LABEL_TEXT_COLOR = '#ffffff';
+const NC_GEOJSON_LABEL_HALO_COLOR = '#2d2d2d';
+
 function ensureGeoJsonPointLabelLayer(map: any, sourceId: string, layerPrefix: string): void {
   const id = `${layerPrefix}label`;
-  if (map.getLayer?.(id)) return;
+  if (map.getLayer?.(id)) {
+    applyGeoJsonLabelOverlapLayout(map, id);
+    try {
+      map.setFilter(id, NC_GEOJSON_LABEL_FILTER);
+      map.setPaintProperty(id, 'text-color', NC_GEOJSON_LABEL_TEXT_COLOR);
+      map.setPaintProperty(id, 'text-halo-color', NC_GEOJSON_LABEL_HALO_COLOR);
+    } catch {
+      /* */
+    }
+    return;
+  }
 
   map.addLayer({
     id,
     type: 'symbol',
     source: sourceId,
-    filter: [
-      'all',
-      ['==', '$type', 'Point'],
-      ['>', ['length', ['to-string', ['coalesce', ['get', 'adi'], '']]], 0],
-    ],
+    filter: NC_GEOJSON_LABEL_FILTER,
     layout: {
       'text-field': ['coalesce', ['get', 'adi'], ''],
       'text-font': [...NC_GEOJSON_LABEL_FONTS],
       'text-size': 11,
       'text-anchor': 'bottom',
       'text-offset': [0, -0.95],
-      'text-allow-overlap': false,
-      'text-ignore-placement': false,
-      'text-optional': true,
+      ...NC_GEOJSON_LABEL_OVERLAP_LAYOUT,
     },
     paint: {
-      'text-color': '#ffffff',
-      'text-halo-color': '#6b7280',
+      'text-color': NC_GEOJSON_LABEL_TEXT_COLOR,
+      'text-halo-color': NC_GEOJSON_LABEL_HALO_COLOR,
       'text-halo-width': 1.25,
       'text-halo-blur': 0.25,
     },
@@ -554,6 +622,7 @@ function addGeoJsonToMap(geojson: GeoJsonFeatureCollection): void {
   const existing = map.getSource?.(sourceId);
   if (existing && typeof existing.setData === 'function') {
     existing.setData(geojson);
+    ensureGeoJsonPointLabelLayer(map, sourceId, layerPrefix);
     applyFaaliyetCategoryPaint(map, layerPrefix, geojson);
     startGeoJsonPulseAnimation(map, layerPrefix);
     fitMapToGeoJson(map, geojson);
@@ -598,6 +667,8 @@ function addGeoJsonToMap(geojson: GeoJsonFeatureCollection): void {
       'circle-stroke-color': '#ffffff',
     },
   });
+
+  ensureGeoJsonPointLabelLayer(map, sourceId, layerPrefix);
 
   applyFaaliyetCategoryPaint(map, layerPrefix, geojson);
   startGeoJsonPulseAnimation(map, layerPrefix);
