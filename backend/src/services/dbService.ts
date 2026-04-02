@@ -311,3 +311,194 @@ export async function executeSqlToGeoJson(input: {
     error: null,
   };
 }
+
+function validateBbox4326(input: unknown): { minLng: number; minLat: number; maxLng: number; maxLat: number } {
+  const arr = input;
+  if (!Array.isArray(arr) || arr.length !== 4) {
+    throw new HttpError(400, '"bbox" 4 elemanlı [minLng, minLat, maxLng, maxLat] olmalı.');
+  }
+  const nums = arr.map((x) => (typeof x === 'number' && Number.isFinite(x) ? x : NaN));
+  if (nums.some((n) => !Number.isFinite(n))) {
+    throw new HttpError(400, '"bbox" değerleri sayısal olmalı.');
+  }
+  const [minLng, minLat, maxLng, maxLat] = nums;
+  if (!(minLng < maxLng && minLat < maxLat)) {
+    throw new HttpError(400, '"bbox" min < max olmalı.');
+  }
+  // Basit aralık kontrolü (tam katı değil, prototip için yeterli)
+  if (minLng < -180 || maxLng > 180 || minLat < -90 || maxLat > 90) {
+    // Yine de devam et
+  }
+  return { minLng, minLat, maxLng, maxLat };
+}
+
+export async function countKentrehberiPoiByFaaliyetAdiInBbox4326(input: {
+  bbox: unknown;
+}): Promise<{
+  ok: true;
+  bbox: { minLng: number; minLat: number; maxLng: number; maxLat: number };
+  total_count: number;
+  results: Array<{ faaliyet_adi: string | null; record_count: number }>;
+}> {
+  const bbox = validateBbox4326(input.bbox);
+  const pg = getPool();
+
+  // kentrehberi_poi.Geometry kolonu: poly (point)
+  // Projeksiyon: poly (source SRID ~7933) -> 4326, sonra bbox ile kesişim.
+  const sql = `
+    select
+      faaliyet_adi,
+      count(*)::int as record_count
+    from kentrehberi_poi
+    where poly is not null
+      and st_intersects(
+        st_transform(
+          case
+            when st_srid(poly) = 0 or st_srid(poly) is null then st_setsrid(poly, $5)
+            else poly
+          end,
+          4326
+        ),
+        st_makeenvelope($1, $2, $3, $4, 4326)
+      )
+    group by faaliyet_adi
+    order by record_count desc
+  `;
+
+  const sqlTotal = `
+    select count(*)::int as total_count
+    from kentrehberi_poi
+    where poly is not null
+      and st_intersects(
+        st_transform(
+          case
+            when st_srid(poly) = 0 or st_srid(poly) is null then st_setsrid(poly, $5)
+            else poly
+          end,
+          4326
+        ),
+        st_makeenvelope($1, $2, $3, $4, 4326)
+      )
+  `;
+
+  const params = [bbox.minLng, bbox.minLat, bbox.maxLng, bbox.maxLat, FALLBACK_SOURCE_SRID];
+
+  const [groupRes, totalRes] = await Promise.all([pg.query(sql, params), pg.query(sqlTotal, params)]);
+  const results = (groupRes.rows as Array<{ faaliyet_adi: string | null; record_count: number }>).map(
+    (r) => ({
+      faaliyet_adi: r.faaliyet_adi ?? null,
+      record_count: Number(r.record_count ?? 0),
+    }),
+  );
+  const total_count = Number((totalRes.rows?.[0] as any)?.total_count ?? 0);
+
+  return {
+    ok: true,
+    bbox,
+    total_count,
+    results,
+  };
+}
+
+const KENTREHBERI_POI_BBOX_MAX_FEATURES = Math.min(
+  50_000,
+  Math.max(1, Number(process.env.KENTREHBERI_POI_BBOX_MAX_FEATURES ?? 5000) || 5000),
+);
+
+/**
+ * Bbox (EPSG:4326) içindeki kentrehberi_poi kayıtlarını GeoJSON FeatureCollection olarak döner.
+ * Özelliklerde yalnızca `adi` ve `faaliyet_adi` bulunur.
+ * `kategori_adi` verilirse faaliyet_adi ile büyük/küçük harf duyarsız tam eşleşme uygulanır; verilmezse bbox içindeki tüm kayıtlar döner.
+ */
+export async function fetchKentrehberiPoiFeaturesByBbox4326(input: {
+  bbox: unknown;
+  kategori_adi?: unknown;
+}): Promise<{
+  ok: true;
+  bbox: { minLng: number; minLat: number; maxLng: number; maxLat: number };
+  kategori_adi: string | null;
+  record_count: number;
+  geojson: GeoJsonFeatureCollection;
+}> {
+  const bbox = validateBbox4326(input.bbox);
+  let kategoriFilter: string | null = null;
+  if (typeof input.kategori_adi === 'string' && input.kategori_adi.trim()) {
+    kategoriFilter = input.kategori_adi.trim();
+  }
+
+  const pg = getPool();
+  const sql = `
+    select
+      adi,
+      faaliyet_adi,
+      ST_AsGeoJSON(
+        ST_Transform(
+          case
+            when st_srid(poly) = 0 or st_srid(poly) is null then st_setsrid(poly, $5)
+            else poly
+          end,
+          4326
+        )
+      )::text as geom_json
+    from kentrehberi_poi
+    where poly is not null
+      and st_intersects(
+        st_transform(
+          case
+            when st_srid(poly) = 0 or st_srid(poly) is null then st_setsrid(poly, $5)
+            else poly
+          end,
+          4326
+        ),
+        st_makeenvelope($1, $2, $3, $4, 4326)
+      )
+      and (
+        $6::text is null
+        or lower(trim(coalesce(faaliyet_adi, ''))) = lower(trim($6::text))
+      )
+    limit $7
+  `;
+
+  const params = [
+    bbox.minLng,
+    bbox.minLat,
+    bbox.maxLng,
+    bbox.maxLat,
+    FALLBACK_SOURCE_SRID,
+    kategoriFilter,
+    KENTREHBERI_POI_BBOX_MAX_FEATURES,
+  ];
+
+  const result = await pg.query(sql, params);
+  const features: GeoJsonFeature[] = [];
+
+  for (const row of result.rows as Array<Record<string, unknown>>) {
+    const raw = row.geom_json;
+    if (typeof raw !== 'string' || !raw.trim()) continue;
+    let geometry: GeoJsonGeometry;
+    try {
+      geometry = JSON.parse(raw) as GeoJsonGeometry;
+    } catch {
+      continue;
+    }
+    features.push({
+      type: 'Feature',
+      geometry,
+      properties: {
+        adi: row.adi ?? null,
+        faaliyet_adi: row.faaliyet_adi ?? null,
+      },
+    });
+  }
+
+  return {
+    ok: true,
+    bbox,
+    kategori_adi: kategoriFilter,
+    record_count: features.length,
+    geojson: {
+      type: 'FeatureCollection',
+      features,
+    },
+  };
+}
