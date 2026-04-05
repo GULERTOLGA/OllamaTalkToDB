@@ -394,7 +394,7 @@ const NC_LEGEND_DEFAULT_COLOR = '#999999';
  * Renkler haritadaki ile aynı kalır (alfabetik kategori sırasına göre palet indeksi).
  * Liste görünümü kayıt sayısına göre azalan sırada; eşitlikte Türkçe etiket sırası.
  */
-function getFaaliyetLegendEntries(geojson: GeoJsonFeatureCollection): Array<{ label: string; color: string }> {
+function getFaaliyetLegendEntries(geojson: GeoJsonFeatureCollection): Array<{ label: string; color: string; count: number }> {
   const categories = collectDistinctFaaliyetAdi(geojson);
   const n = NC_FAALIYET_PALETTE.length;
   const colorByCat = new Map<string, string>();
@@ -427,15 +427,15 @@ function getFaaliyetLegendEntries(geojson: GeoJsonFeatureCollection): Array<{ la
     return a.label.localeCompare(b.label, 'tr');
   });
 
-  return rows.map(({ label, color }) => ({ label, color }));
+  return rows;
 }
 
 const NC_LEGEND_INITIAL_VISIBLE = 5;
 
-function buildLegendListUl(items: Array<{ label: string; color: string }>): HTMLUListElement {
+function buildLegendListUl(items: Array<{ label: string; color: string; count: number }>): HTMLUListElement {
   const ul = document.createElement('ul');
   ul.className = 'nc_chatpanel_legend_list';
-  for (const { label, color } of items) {
+  for (const { label, color, count } of items) {
     const li = document.createElement('li');
     li.className = 'nc_chatpanel_legend_row';
     const sw = document.createElement('span');
@@ -444,7 +444,7 @@ function buildLegendListUl(items: Array<{ label: string; color: string }>): HTML
     sw.setAttribute('aria-hidden', 'true');
     const lb = document.createElement('span');
     lb.className = 'nc_chatpanel_legend_label';
-    lb.textContent = label;
+    lb.textContent = `${label} (${count})`;
     li.appendChild(sw);
     li.appendChild(lb);
     ul.appendChild(li);
@@ -452,7 +452,7 @@ function buildLegendListUl(items: Array<{ label: string; color: string }>): HTML
   return ul;
 }
 
-function createKentrehberiLegendElement(entries: Array<{ label: string; color: string }>): HTMLElement {
+function createKentrehberiLegendElement(entries: Array<{ label: string; color: string; count: number }>): HTMLElement {
   const wrap = document.createElement('div');
   wrap.className = 'nc_chatpanel_legend';
   const heading = document.createElement('div');
