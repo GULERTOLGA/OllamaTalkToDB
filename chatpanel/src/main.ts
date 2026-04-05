@@ -24,6 +24,9 @@ export function getMaplibre(): unknown {
 const DEFAULT_N8N_PROXY_URL = 'http://localhost:3001/api/n8n';
 const DEFAULT_DB_API_URL = 'http://localhost:3001/api';
 
+const NC_CHAT_PANEL_WELCOME_AI =
+  "Merhaba, Ben Alanya Belediyesi Kent Rehberi'niz Neco. Size nasıl yardımcı olabilirim?";
+
 const SEARCH_SCAN_STYLE_ID = 'nc_search_scan_styles';
 const SEARCH_SCAN_OVERLAY_ID = 'nc_search_scan_overlay';
 
@@ -427,16 +430,12 @@ function getFaaliyetLegendEntries(geojson: GeoJsonFeatureCollection): Array<{ la
   return rows.map(({ label, color }) => ({ label, color }));
 }
 
-function createKentrehberiLegendElement(entries: Array<{ label: string; color: string }>): HTMLElement {
-  const wrap = document.createElement('div');
-  wrap.className = 'nc_chatpanel_legend';
-  const heading = document.createElement('div');
-  heading.className = 'nc_chatpanel_legend_heading';
-  heading.textContent = 'Lejant';
-  wrap.appendChild(heading);
+const NC_LEGEND_INITIAL_VISIBLE = 5;
+
+function buildLegendListUl(items: Array<{ label: string; color: string }>): HTMLUListElement {
   const ul = document.createElement('ul');
   ul.className = 'nc_chatpanel_legend_list';
-  for (const { label, color } of entries) {
+  for (const { label, color } of items) {
     const li = document.createElement('li');
     li.className = 'nc_chatpanel_legend_row';
     const sw = document.createElement('span');
@@ -450,7 +449,51 @@ function createKentrehberiLegendElement(entries: Array<{ label: string; color: s
     li.appendChild(lb);
     ul.appendChild(li);
   }
-  wrap.appendChild(ul);
+  return ul;
+}
+
+function createKentrehberiLegendElement(entries: Array<{ label: string; color: string }>): HTMLElement {
+  const wrap = document.createElement('div');
+  wrap.className = 'nc_chatpanel_legend';
+  const heading = document.createElement('div');
+  heading.className = 'nc_chatpanel_legend_heading';
+  heading.textContent = 'Lejant';
+  wrap.appendChild(heading);
+
+  if (entries.length <= NC_LEGEND_INITIAL_VISIBLE) {
+    wrap.appendChild(buildLegendListUl(entries));
+    return wrap;
+  }
+
+  const visible = entries.slice(0, NC_LEGEND_INITIAL_VISIBLE);
+  const extra = entries.slice(NC_LEGEND_INITIAL_VISIBLE);
+  wrap.appendChild(buildLegendListUl(visible));
+
+  const ulExtra = buildLegendListUl(extra);
+  const extraId = `nc_chatpanel_legend_extra_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 7)}`;
+  ulExtra.id = extraId;
+  ulExtra.classList.add('nc_chatpanel_legend_list_extra');
+  ulExtra.hidden = true;
+  wrap.appendChild(ulExtra);
+
+  const btn = document.createElement('button');
+  btn.type = 'button';
+  btn.className = 'btn btn-link btn-sm nc_chatpanel_legend_expand_btn';
+  btn.setAttribute('aria-expanded', 'false');
+  btn.setAttribute('aria-controls', extraId);
+  const nExtra = extra.length;
+  btn.textContent = `+ ${nExtra} kategori daha`;
+
+  btn.addEventListener('click', () => {
+    ulExtra.hidden = !ulExtra.hidden;
+    const isExpanded = !ulExtra.hidden;
+    btn.setAttribute('aria-expanded', String(isExpanded));
+    btn.textContent = isExpanded ? 'Daha az göster' : `+ ${nExtra} kategori daha`;
+    const messages = wrap.closest('#nc_chatpanel_messages');
+    if (messages) scrollMessagesToEnd(messages as HTMLElement);
+  });
+
+  wrap.appendChild(btn);
   return wrap;
 }
 
@@ -612,12 +655,40 @@ function ensureGeoJsonPointLabelLayer(map: any, sourceId: string, layerPrefix: s
   });
 }
 
+const NC_CHATPANEL_GEOJSON_SOURCE_ID = 'nc_chatpanel_geojson';
+const NC_CHATPANEL_GEOJSON_LAYER_PREFIX = 'nc_chatpanel_geojson_';
+
+/** Chat panelinin haritaya eklediği GeoJSON kaynağı ve katmanlarını kaldırır. */
+function removeChatPanelGeoJsonFromMap(): void {
+  const map = getRegisteredMap() as any;
+  if (!map?.getLayer || !map.removeLayer) return;
+
+  const state = map.__ncChatPanelAnim as { rafId?: number } | undefined;
+  if (state && typeof state.rafId === 'number') {
+    cancelAnimationFrame(state.rafId);
+    state.rafId = undefined;
+  }
+
+  const prefix = NC_CHATPANEL_GEOJSON_LAYER_PREFIX;
+  const layerIds = [`${prefix}label`, `${prefix}point`, `${prefix}line`, `${prefix}fill`];
+  try {
+    for (const id of layerIds) {
+      if (map.getLayer?.(id)) map.removeLayer(id);
+    }
+    if (map.getSource?.(NC_CHATPANEL_GEOJSON_SOURCE_ID)) {
+      map.removeSource(NC_CHATPANEL_GEOJSON_SOURCE_ID);
+    }
+  } catch {
+    /* harita dispose */
+  }
+}
+
 function addGeoJsonToMap(geojson: GeoJsonFeatureCollection): void {
   const map = getRegisteredMap() as any;
   if (!map || typeof map.addSource !== 'function') return;
 
-  const sourceId = 'nc_chatpanel_geojson';
-  const layerPrefix = 'nc_chatpanel_geojson_';
+  const sourceId = NC_CHATPANEL_GEOJSON_SOURCE_ID;
+  const layerPrefix = NC_CHATPANEL_GEOJSON_LAYER_PREFIX;
 
   const existing = map.getSource?.(sourceId);
   if (existing && typeof existing.setData === 'function') {
@@ -716,6 +787,57 @@ function scrollMessagesToEnd(messages: HTMLElement): void {
   });
 }
 
+function escapeHtml(text: string): string {
+  return text
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+}
+
+/**
+ * Düz metinde [Kategori] ifadelerini güvenli HTML linkine çevirir (data-cat = parantez içi metin).
+ */
+function linkifyBracketCategoriesHtml(text: string): string {
+  const parts: string[] = [];
+  const re = /\[([^\]]*)\]/g;
+  let last = 0;
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(text)) !== null) {
+    parts.push(escapeHtml(text.slice(last, m.index)));
+    const rawInner = m[1] ?? '';
+    const inner = rawInner.trim();
+    if (inner.length === 0) {
+      parts.push(escapeHtml(m[0]));
+    } else {
+      const safe = escapeHtml(inner);
+      parts.push(
+        `<a href="#" class="nc_chatpanel_msg_catlink" data-cat="${safe}" title="${safe}">${safe}</a>`,
+      );
+    }
+    last = m.index + m[0].length;
+  }
+  parts.push(escapeHtml(text.slice(last)));
+  return parts.join('');
+}
+
+function setAiMessageHtmlFromPlainText(bubble: HTMLElement, plainText: string): void {
+  bubble.innerHTML = linkifyBracketCategoriesHtml(plainText);
+}
+
+function ensureBracketCategoryLinkDelegation(messages: HTMLElement): void {
+  if (messages.dataset.ncBracketCatDelegated === 'true') return;
+  messages.dataset.ncBracketCatDelegated = 'true';
+  messages.addEventListener('click', (ev) => {
+    const t = ev.target as HTMLElement | null;
+    const a = t?.closest?.('a.nc_chatpanel_msg_catlink') as HTMLAnchorElement | null;
+    if (!a) return;
+    ev.preventDefault();
+    const cat = a.getAttribute('data-cat') ?? '';
+    console.log('[chatpanel] kategori linki', cat);
+  });
+}
+
 function injectStyles(target: ShadowRoot): void {
   if (!target.getElementById('nc_chatpanel_bootstrap_css')) {
     const link = document.createElement('link');
@@ -735,6 +857,7 @@ function injectStyles(target: ShadowRoot): void {
       bottom: 16px;
       z-index: 99999;
       width: min(380px, calc(100vw - 32px));
+      min-height: min(520px, calc(100vh - 28px));
       max-height: min(650px, calc(100vh - 24px));
       display: flex;
       flex-direction: column;
@@ -811,6 +934,15 @@ function injectStyles(target: ShadowRoot): void {
       border: 1px solid #dee2e6;
       border-bottom-left-radius: 4px;
     }
+    .nc_chatpanel_msg_ai .nc_chatpanel_msg_catlink {
+      color: #0d6efd;
+      font-weight: 600;
+      text-decoration: underline;
+      cursor: pointer;
+    }
+    .nc_chatpanel_msg_ai .nc_chatpanel_msg_catlink:hover {
+      color: #0a58ca;
+    }
     .nc_chatpanel_msg_with_legend {
       white-space: normal;
     }
@@ -836,6 +968,19 @@ function injectStyles(target: ShadowRoot): void {
       list-style: none;
       margin: 0;
       padding: 0;
+    }
+    .nc_chatpanel_legend_list_extra {
+      margin-top: 4px;
+    }
+    .nc_chatpanel_legend_expand_btn {
+      margin-top: 4px;
+      padding-left: 0 !important;
+      font-size: 0.78rem;
+      text-decoration: none;
+      vertical-align: baseline;
+    }
+    .nc_chatpanel_legend_expand_btn:hover {
+      text-decoration: underline;
     }
     .nc_chatpanel_legend_row {
       display: flex;
@@ -890,7 +1035,7 @@ function injectStyles(target: ShadowRoot): void {
 
 function createPanelMarkup(): string {
   return `
-    <div class="nc_chatpanel_header bg-primary text-white px-3 py-2">Keos AI</div>
+    <div class="nc_chatpanel_header bg-primary text-white px-3 py-2">NEco Keos AI</div>
     <div class="nc_chatpanel_toolbox px-2 py-2 border-bottom">
       <button
         type="button"
@@ -905,15 +1050,15 @@ function createPanelMarkup(): string {
       </button>
       <button
         type="button"
-        class="btn btn-outline-primary btn-sm nc_chatpanel_all_poi_btn"
-        id="nc_chatpanel_all_poi_btn"
-        title="Görünür alandaki tüm kayıtları haritaya ekle"
-        aria-label="Tüm kayıtlar"
+        class="btn btn-outline-secondary btn-sm nc_chatpanel_clear_btn"
+        id="nc_chatpanel_clear_btn"
+        title="Sohbeti temizle ve haritadaki panel katmanını kaldır"
+        aria-label="Temizle"
       >
         <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-          <path d="M12 2L2 7l10 5 10-5-10-5z"/>
-          <path d="M2 17l10 5 10-5"/>
-          <path d="M2 12l10 5 10-5"/>
+          <path d="M3 6h18"/>
+          <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/>
+          <path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
         </svg>
       </button>
     </div>
@@ -936,6 +1081,8 @@ function bindForm(scope: ParentNode, n8nProxyUrl: string): void {
   if (!form || !input || !messages) return;
   if (form.dataset.ncBoundChat === 'true') return;
   form.dataset.ncBoundChat = 'true';
+
+  ensureBracketCategoryLinkDelegation(messages);
 
   const appendMessage = (kind: 'user' | 'ai', textOrNode: string | Node): HTMLElement => {
     const bubble = document.createElement('div');
@@ -970,7 +1117,7 @@ function bindForm(scope: ParentNode, n8nProxyUrl: string): void {
 
     void postChatToN8n(n8nProxyUrl, text)
       .then((assistantText) => {
-        aiBubble.textContent = assistantText;
+        setAiMessageHtmlFromPlainText(aiBubble, assistantText);
         scrollMessagesToEnd(messages);
       })
       .catch((err) => {
@@ -1005,29 +1152,28 @@ function getMapBBox4326FromRegistry(): [number, number, number, number] | null {
   return [minLng, minLat, maxLng, maxLat];
 }
 
-function bindAllKentrehberiFeaturesButton(scope: ParentNode, dbApiUrl: string): void {
-  const btn = scope.querySelector<HTMLButtonElement>('#nc_chatpanel_all_poi_btn');
-  const messages = scope.querySelector<HTMLElement>('#nc_chatpanel_messages');
-  if (!btn) return;
-  if (btn.dataset.ncBoundAllPoi === 'true') return;
-  btn.dataset.ncBoundAllPoi = 'true';
+const NC_WISART_THEN_FEATURES_DELAY_MS = 100;
+
+/** POST /db/kentrehberi_poi/features-by-bbox — haritaya GeoJSON + lejant mesajı. */
+async function fetchAndApplyKentrehberiFeaturesByBbox(dbApiUrl: string, messages: HTMLElement | null): Promise<void> {
+  if (!messages) return;
 
   const appendAiMessage = (text: string): void => {
-    if (!messages) return;
+    ensureBracketCategoryLinkDelegation(messages);
     const bubble = document.createElement('div');
     bubble.className = 'nc_chatpanel_msg nc_chatpanel_msg_ai';
-    bubble.textContent = text;
+    setAiMessageHtmlFromPlainText(bubble, text);
     messages.appendChild(bubble);
     scrollMessagesToEnd(messages);
   };
 
   const appendSuccessWithLegend = (text: string, gj: GeoJsonFeatureCollection): void => {
-    if (!messages) return;
+    ensureBracketCategoryLinkDelegation(messages);
     const bubble = document.createElement('div');
     bubble.className = 'nc_chatpanel_msg nc_chatpanel_msg_ai nc_chatpanel_msg_with_legend';
     const intro = document.createElement('div');
     intro.className = 'nc_chatpanel_legend_intro';
-    intro.textContent = text;
+    intro.innerHTML = linkifyBracketCategoriesHtml(text);
     bubble.appendChild(intro);
     const entries = getFaaliyetLegendEntries(gj);
     if (entries.length > 0) {
@@ -1037,63 +1183,83 @@ function bindAllKentrehberiFeaturesButton(scope: ParentNode, dbApiUrl: string): 
     scrollMessagesToEnd(messages);
   };
 
-  btn.addEventListener('click', async () => {
-    if (btn.disabled) return;
-    btn.disabled = true;
-    const prevHtml = btn.innerHTML;
-    btn.innerHTML = '<span aria-hidden="true">...</span>';
-    showSearchScanOverlay();
-
-    try {
-      const bbox = getMapBBox4326FromRegistry();
-      if (!bbox) {
-        console.warn('[chatpanel] Harita bbox alınamadı.');
-        appendAiMessage('Harita alanı okunamadı.');
-        return;
-      }
-
-      const endpoint = `${dbApiUrl}/db/kentrehberi_poi/features-by-bbox`;
-      const resp = await fetch(endpoint, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ bbox }),
-      });
-
-      let rawBody: unknown = null;
-      try {
-        rawBody = await resp.json();
-      } catch {
-        rawBody = null;
-      }
-      const data = rawBody as { geojson?: GeoJsonFeatureCollection; record_count?: number; error?: string } | null;
-
-      if (!resp.ok) {
-        const errText =
-          data && typeof data.error === 'string' ? data.error : `HTTP ${resp.status}`;
-        appendAiMessage(`Kayıtlar yüklenemedi: ${errText}`);
-        return;
-      }
-
-      const gj = data?.geojson;
-      if (gj && gj.type === 'FeatureCollection') {
-        addGeoJsonToMap(gj);
-        const n =
-          typeof data.record_count === 'number' && Number.isFinite(data.record_count)
-            ? data.record_count
-            : gj.features?.length ?? 0;
-        appendSuccessWithLegend(`Haritaya ${n} kayıt eklendi (görünür alan).`, gj);
-        console.log('[chatpanel] kentrehberi tüm kayıtlar', { endpoint, record_count: n });
-      } else {
-        appendAiMessage('GeoJSON yanıtı alınamadı.');
-      }
-    } catch (err) {
-      console.error('[chatpanel] tüm kayıtlar hata', err);
-      appendAiMessage('Kayıtlar yüklenirken hata oluştu.');
-    } finally {
-      hideSearchScanOverlay();
-      btn.disabled = false;
-      btn.innerHTML = prevHtml;
+  try {
+    const bbox = getMapBBox4326FromRegistry();
+    if (!bbox) {
+      console.warn('[chatpanel] Harita bbox alınamadı.');
+      appendAiMessage('Harita alanı okunamadı.');
+      return;
     }
+
+    const endpoint = `${dbApiUrl}/db/kentrehberi_poi/features-by-bbox`;
+    const resp = await fetch(endpoint, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ bbox }),
+    });
+
+    let rawBody: unknown = null;
+    try {
+      rawBody = await resp.json();
+    } catch {
+      rawBody = null;
+    }
+    const data = rawBody as { geojson?: GeoJsonFeatureCollection; record_count?: number; error?: string } | null;
+
+    if (!resp.ok) {
+      const errText =
+        data && typeof data.error === 'string' ? data.error : `HTTP ${resp.status}`;
+      appendAiMessage(`Kayıtlar yüklenemedi: ${errText}`);
+      return;
+    }
+
+    const gj = data?.geojson;
+    if (gj && gj.type === 'FeatureCollection') {
+      addGeoJsonToMap(gj);
+      const n =
+        typeof data.record_count === 'number' && Number.isFinite(data.record_count)
+          ? data.record_count
+          : gj.features?.length ?? 0;
+      appendSuccessWithLegend(`Haritaya ${n} kayıt eklendi`, gj);
+      console.log('[chatpanel] kentrehberi tüm kayıtlar', { endpoint, record_count: n });
+    } else {
+      appendAiMessage('GeoJSON yanıtı alınamadı.');
+    }
+  } catch (err) {
+    console.error('[chatpanel] features-by-bbox hata', err);
+    appendAiMessage('Kayıtlar yüklenirken hata oluştu.');
+  }
+}
+
+function resetChatPanelToInitialState(scope: ParentNode): void {
+  const messages = scope.querySelector<HTMLElement>('#nc_chatpanel_messages');
+  const input = scope.querySelector<HTMLInputElement>('#nc_chatpanel_input');
+
+  if (messages) {
+    messages.replaceChildren();
+  }
+  if (input) {
+    input.value = '';
+    input.disabled = false;
+  }
+
+  removeChatPanelGeoJsonFromMap();
+  appendWelcomeAiMessageIfNeeded(scope);
+
+  if (messages) {
+    messages.scrollTop = 0;
+  }
+}
+
+function bindClearPanelButton(scope: ParentNode): void {
+  const btn = scope.querySelector<HTMLButtonElement>('#nc_chatpanel_clear_btn');
+  if (!btn) return;
+  if (btn.dataset.ncBoundClear === 'true') return;
+  btn.dataset.ncBoundClear = 'true';
+
+  btn.addEventListener('click', () => {
+    resetChatPanelToInitialState(scope);
+    console.log('[chatpanel] panel temizlendi');
   });
 }
 
@@ -1106,9 +1272,10 @@ function bindWisartButton(scope: ParentNode, dbApiUrl: string): void {
 
   const appendAiMessage = (text: string): void => {
     if (!messages) return;
+    ensureBracketCategoryLinkDelegation(messages);
     const bubble = document.createElement('div');
     bubble.className = 'nc_chatpanel_msg nc_chatpanel_msg_ai';
-    bubble.textContent = text;
+    setAiMessageHtmlFromPlainText(bubble, text);
     messages.appendChild(bubble);
     scrollMessagesToEnd(messages);
   };
@@ -1120,13 +1287,16 @@ function bindWisartButton(scope: ParentNode, dbApiUrl: string): void {
     btn.innerHTML = '<span aria-hidden="true">...</span>';
     showSearchScanOverlay();
 
+    let ranKentrehberiProxy = false;
     try {
       const bbox = getMapBBox4326FromRegistry();
       if (!bbox) {
         console.warn('[chatpanel] Harita bbox alınamadı.');
+        appendAiMessage('Harita alanı okunamadı.');
         return;
       }
 
+      ranKentrehberiProxy = true;
       const endpoint = `${dbApiUrl}/n8n/kentrehberi`;
       const resp = await fetch(endpoint, {
         method: 'POST',
@@ -1165,8 +1335,26 @@ function bindWisartButton(scope: ParentNode, dbApiUrl: string): void {
       hideSearchScanOverlay();
       btn.disabled = false;
       btn.innerHTML = prevHtml;
+      if (ranKentrehberiProxy) {
+        window.setTimeout(() => {
+          void fetchAndApplyKentrehberiFeaturesByBbox(dbApiUrl, messages);
+        }, NC_WISART_THEN_FEATURES_DELAY_MS);
+      }
     }
   });
+}
+
+function appendWelcomeAiMessageIfNeeded(scope: ParentNode): void {
+  const messages = scope.querySelector<HTMLElement>('#nc_chatpanel_messages');
+  if (!messages) return;
+  ensureBracketCategoryLinkDelegation(messages);
+  if (messages.querySelector('[data-nc-welcome-ai="true"]')) return;
+
+  const bubble = document.createElement('div');
+  bubble.className = 'nc_chatpanel_msg nc_chatpanel_msg_ai';
+  bubble.setAttribute('data-nc-welcome-ai', 'true');
+  bubble.textContent = NC_CHAT_PANEL_WELCOME_AI;
+  messages.prepend(bubble);
 }
 
 export function initChatPanel(options: ChatPanelOptions = {}): HTMLElement {
@@ -1182,7 +1370,8 @@ export function initChatPanel(options: ChatPanelOptions = {}): HTMLElement {
     const shadow = root.shadowRoot;
     if (shadow) {
       bindWisartButton(shadow, dbApiUrl);
-      bindAllKentrehberiFeaturesButton(shadow, dbApiUrl);
+      bindClearPanelButton(shadow);
+      appendWelcomeAiMessageIfNeeded(shadow);
       // bindForm shadow içindeyse zaten data-ncBoundChat guard’ı ile tekrar kurmaz.
     }
     return root;
@@ -1202,7 +1391,8 @@ export function initChatPanel(options: ChatPanelOptions = {}): HTMLElement {
   container.appendChild(root);
   bindForm(shadow, n8nProxyUrl);
   bindWisartButton(shadow, dbApiUrl);
-  bindAllKentrehberiFeaturesButton(shadow, dbApiUrl);
+  bindClearPanelButton(shadow);
+  appendWelcomeAiMessageIfNeeded(shadow);
   return root;
 }
 

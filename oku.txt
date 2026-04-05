@@ -6,4 +6,7 @@ ntc123**
 npm run dev:backend
 
  ngrok http 3001 --domain=ollama.ngrok.app
-599908
+
+
+npm run build:embed chatpanel 
+
