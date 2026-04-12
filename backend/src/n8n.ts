@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import multer from 'multer';
-import { proxyChatToN8n, proxyKentrehberiToN8n } from './services/n8nService.js';
+import { proxyChatToN8n, proxyKentrehberiToN8n, proxyNewsToN8n } from './services/n8nService.js';
 import { toHttpError } from './services/httpError.js';
 import { executeSqlToGeoJson } from './services/dbService.js';
 
@@ -46,6 +46,22 @@ router.post('/n8n/kentrehberi', async (req, res) => {
     return res.send(upstream.body);
   } catch (err) {
     const e = toHttpError(err, 502, 'n8n kentrehberi isteği başarısız');
+    return res.status(e.statusCode).json({ ok: false, error: e.message });
+  }
+});
+
+router.post('/n8n/news', formParser.none(), async (req, res) => {
+  const { chatInput } = req.body ?? {};
+
+  try {
+    const upstream = await proxyNewsToN8n(String(chatInput ?? ''));
+    res.status(upstream.status);
+    if (upstream.contentType) {
+      res.setHeader('Content-Type', upstream.contentType);
+    }
+    return res.send(upstream.body);
+  } catch (err) {
+    const e = toHttpError(err, 502, 'n8n haber isteği başarısız');
     return res.status(e.statusCode).json({ ok: false, error: e.message });
   }
 });

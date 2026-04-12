@@ -210,6 +210,11 @@ function resolveN8nProxyUrl(options: ChatPanelOptions): string {
   return DEFAULT_N8N_PROXY_URL;
 }
 
+/** `.../api/n8n` → `.../api/n8n/news` */
+function resolveN8nNewsProxyUrl(n8nProxyUrl: string): string {
+  return `${n8nProxyUrl.replace(/\/$/, '')}/news`;
+}
+
 function resolveDbApiUrl(options: ChatPanelOptions): string {
   const fromOpt = options.dbApiUrl?.trim();
   if (fromOpt) return fromOpt;
@@ -1193,6 +1198,20 @@ function createPanelMarkup(): string {
       </button>
       <button
         type="button"
+        class="btn btn-outline-info btn-sm nc_chatpanel_news_btn"
+        id="nc_chatpanel_news_btn"
+        title="Haber (n8n)"
+        aria-label="Haber"
+      >
+        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M4 22h16a2 2 0 0 0 2-2V4a2 2 0 0 0-2-2H8a2 2 0 0 0-2 2v16a2 2 0 0 1-2 2Zm0 0a2 2 0 0 1-2-2v-9c0-1.1.9-2 2-2h2"/>
+          <path d="M18 14h-8"/>
+          <path d="M15 18h-5"/>
+          <path d="M10 6h8v4h-8V6Z"/>
+        </svg>
+      </button>
+      <button
+        type="button"
         class="btn btn-outline-secondary btn-sm nc_chatpanel_clear_btn"
         id="nc_chatpanel_clear_btn"
         title="Sohbeti temizle ve haritadaki panel katmanını kaldır"
@@ -1406,6 +1425,37 @@ function bindClearPanelButton(scope: ParentNode): void {
   });
 }
 
+function bindNewsButton(scope: ParentNode, n8nProxyUrl: string): void {
+  const btn = scope.querySelector<HTMLButtonElement>('#nc_chatpanel_news_btn');
+  if (!btn) return;
+  if (btn.dataset.ncBoundNews === 'true') return;
+  btn.dataset.ncBoundNews = 'true';
+
+  const endpoint = resolveN8nNewsProxyUrl(n8nProxyUrl);
+
+  btn.addEventListener('click', async () => {
+    if (btn.disabled) return;
+    btn.disabled = true;
+    try {
+      const fd = new FormData();
+      fd.append('chatInput', 'haberler');
+      const resp = await fetch(endpoint, { method: 'POST', body: fd });
+      const raw = await resp.text();
+      let data: unknown = raw;
+      try {
+        data = JSON.parse(raw);
+      } catch {
+        /* metin yanıt */
+      }
+      console.log('[chatpanel] n8n news yanıtı', { endpoint, status: resp.status, data });
+    } catch (err) {
+      console.error('[chatpanel] n8n news istek hatası', err);
+    } finally {
+      btn.disabled = false;
+    }
+  });
+}
+
 function bindWisartButton(scope: ParentNode, dbApiUrl: string): void {
   const btn = scope.querySelector<HTMLButtonElement>('#nc_chatpanel_wisart_btn');
   const messages = scope.querySelector<HTMLElement>('#nc_chatpanel_messages');
@@ -1513,6 +1563,7 @@ export function initChatPanel(options: ChatPanelOptions = {}): HTMLElement {
     const shadow = root.shadowRoot;
     if (shadow) {
       bindWisartButton(shadow, dbApiUrl);
+      bindNewsButton(shadow, n8nProxyUrl);
       bindClearPanelButton(shadow);
       appendWelcomeAiMessageIfNeeded(shadow);
       // bindForm shadow içindeyse zaten data-ncBoundChat guard’ı ile tekrar kurmaz.
@@ -1534,6 +1585,7 @@ export function initChatPanel(options: ChatPanelOptions = {}): HTMLElement {
   container.appendChild(root);
   bindForm(shadow, n8nProxyUrl);
   bindWisartButton(shadow, dbApiUrl);
+  bindNewsButton(shadow, n8nProxyUrl);
   bindClearPanelButton(shadow);
   appendWelcomeAiMessageIfNeeded(shadow);
   return root;
