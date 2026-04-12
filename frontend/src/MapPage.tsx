@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import maplibregl from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
 import './nc_styles.css';
+import navigationPng from './assets/navigation_880.png';
 
 /** Chat panel ve eklentiler MapLibre API’ye ihtiyaç duyarsa kullanır (marker zorunlu değil). */
 if (typeof window !== 'undefined') {
@@ -9,7 +10,7 @@ if (typeof window !== 'undefined') {
 }
 
 const ALANYA_CENTER: [number, number] = [31.9998, 36.5441];
-const ALANYA_STYLE_URL = 'http://localhost:59951/style/alanyavector4';
+const ALANYA_STYLE_URL = 'http://localhost:60952/style/alanyavector4';
 
 const CHATPANEL_SCRIPT_ID = 'nc_map_chatpanel_script';
 
@@ -140,6 +141,9 @@ export function MapPage() {
 
   return (
     <div className="nc_map_page">
+      <div className="nc_map_navigation_logo">
+        <img src={navigationPng} alt="Navigation"  className="nc_map_navigation_logo_img" />
+      </div>
       <div className="nc_map_toolbar">
         <a href="/" className="nc_map_back_btn">
           Geri Dön

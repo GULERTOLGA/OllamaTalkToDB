@@ -389,6 +389,7 @@ function applyFaaliyetCategoryPaint(map: any, layerPrefix: string, geojson: GeoJ
 }
 
 const NC_LEGEND_DEFAULT_COLOR = '#999999';
+const NC_LEGEND_UNSPECIFIED_LABEL = 'Belirtilmemiş';
 
 /**
  * Renkler haritadaki ile aynı kalır (alfabetik kategori sırasına göre palet indeksi).
@@ -419,7 +420,7 @@ function getFaaliyetLegendEntries(geojson: GeoJsonFeatureCollection): Array<{ la
     count: countByCat.get(cat) ?? 0,
   }));
   if (missing > 0) {
-    rows.push({ label: 'Belirtilmemiş', color: NC_LEGEND_DEFAULT_COLOR, count: missing });
+    rows.push({ label: NC_LEGEND_UNSPECIFIED_LABEL, color: NC_LEGEND_DEFAULT_COLOR, count: missing });
   }
 
   rows.sort((a, b) => {
@@ -432,12 +433,15 @@ function getFaaliyetLegendEntries(geojson: GeoJsonFeatureCollection): Array<{ la
 
 const NC_LEGEND_INITIAL_VISIBLE = 5;
 
-function buildLegendListUl(items: Array<{ label: string; color: string; count: number }>): HTMLUListElement {
+function buildLegendListUl(
+  items: Array<{ label: string; color: string; count: number }>,
+  geojson: GeoJsonFeatureCollection,
+): HTMLUListElement {
   const ul = document.createElement('ul');
   ul.className = 'nc_chatpanel_legend_list';
   for (const { label, color, count } of items) {
     const li = document.createElement('li');
-    li.className = 'nc_chatpanel_legend_row';
+    li.className = 'nc_chatpanel_legend_row nc_chatpanel_legend_row_hover';
     const sw = document.createElement('span');
     sw.className = 'nc_chatpanel_legend_swatch';
     sw.style.backgroundColor = color;
@@ -447,12 +451,16 @@ function buildLegendListUl(items: Array<{ label: string; color: string; count: n
     lb.textContent = `${label} (${count})`;
     li.appendChild(sw);
     li.appendChild(lb);
+    bindLegendRowCategoryHover(li, geojson, label);
     ul.appendChild(li);
   }
   return ul;
 }
 
-function createKentrehberiLegendElement(entries: Array<{ label: string; color: string; count: number }>): HTMLElement {
+function createKentrehberiLegendElement(
+  entries: Array<{ label: string; color: string; count: number }>,
+  geojson: GeoJsonFeatureCollection,
+): HTMLElement {
   const wrap = document.createElement('div');
   wrap.className = 'nc_chatpanel_legend';
   const heading = document.createElement('div');
@@ -461,15 +469,15 @@ function createKentrehberiLegendElement(entries: Array<{ label: string; color: s
   wrap.appendChild(heading);
 
   if (entries.length <= NC_LEGEND_INITIAL_VISIBLE) {
-    wrap.appendChild(buildLegendListUl(entries));
+    wrap.appendChild(buildLegendListUl(entries, geojson));
     return wrap;
   }
 
   const visible = entries.slice(0, NC_LEGEND_INITIAL_VISIBLE);
   const extra = entries.slice(NC_LEGEND_INITIAL_VISIBLE);
-  wrap.appendChild(buildLegendListUl(visible));
+  wrap.appendChild(buildLegendListUl(visible, geojson));
 
-  const ulExtra = buildLegendListUl(extra);
+  const ulExtra = buildLegendListUl(extra, geojson);
   const extraId = `nc_chatpanel_legend_extra_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 7)}`;
   ulExtra.id = extraId;
   ulExtra.classList.add('nc_chatpanel_legend_list_extra');
@@ -512,6 +520,127 @@ function collectLngLatPairsFromCoordinates(coords: unknown, out: Array<[number, 
   for (const item of coords) {
     collectLngLatPairsFromCoordinates(item, out);
   }
+}
+
+type GeoJsonFeature = GeoJsonFeatureCollection['features'][number];
+type GeoJsonGeometry = NonNullable<GeoJsonFeature['geometry']>;
+
+function featureMatchesLegendCategory(feature: GeoJsonFeature, categoryLabel: string): boolean {
+  const k = faaliyetAdiFromProps(feature.properties ?? {});
+  if (categoryLabel === NC_LEGEND_UNSPECIFIED_LABEL) return k === null;
+  return k === categoryLabel;
+}
+
+function averageLngLatFromCoordinates(coords: unknown): [number, number] | null {
+  const pts: Array<[number, number]> = [];
+  collectLngLatPairsFromCoordinates(coords, pts);
+  if (pts.length === 0) return null;
+  let sLng = 0;
+  let sLat = 0;
+  for (const [lng, lat] of pts) {
+    sLng += lng;
+    sLat += lat;
+  }
+  return [sLng / pts.length, sLat / pts.length];
+}
+
+function markerLngLatsForGeometry(geom: GeoJsonGeometry | null): Array<[number, number]> {
+  if (!geom) return [];
+  const t = geom.type;
+  if (t === 'Point') {
+    const c = geom.coordinates;
+    if (
+      Array.isArray(c) &&
+      c.length >= 2 &&
+      typeof c[0] === 'number' &&
+      Number.isFinite(c[0]) &&
+      typeof c[1] === 'number' &&
+      Number.isFinite(c[1])
+    ) {
+      return [[c[0], c[1]]];
+    }
+    return [];
+  }
+  if (t === 'MultiPoint') {
+    const pts: Array<[number, number]> = [];
+    collectLngLatPairsFromCoordinates(geom.coordinates, pts);
+    return pts;
+  }
+  if (t === 'LineString' || t === 'Polygon' || t === 'MultiLineString' || t === 'MultiPolygon') {
+    const ll = averageLngLatFromCoordinates(geom.coordinates);
+    return ll ? [ll] : [];
+  }
+  if (t === 'GeometryCollection' && Array.isArray(geom.geometries)) {
+    const out: Array<[number, number]> = [];
+    for (const g of geom.geometries as GeoJsonGeometry[]) {
+      out.push(...markerLngLatsForGeometry(g));
+    }
+    return out;
+  }
+  return [];
+}
+
+/** Harita üzerinde lejant kategorisi hover ile gösterilen geçici Marker örnekleri. */
+const NC_MAP_LEGEND_HOVER_MARKERS_KEY = '__ncChatPanelLegendHoverMarkers';
+
+function clearLegendCategoryHoverMarkers(map: any): void {
+  const arr = map?.[NC_MAP_LEGEND_HOVER_MARKERS_KEY] as Array<{ remove?: () => void }> | undefined;
+  if (Array.isArray(arr)) {
+    for (const m of arr) {
+      try {
+        m.remove?.();
+      } catch {
+        /* */
+      }
+    }
+  }
+  if (map && typeof map === 'object') {
+    map[NC_MAP_LEGEND_HOVER_MARKERS_KEY] = [];
+  }
+}
+
+function applyLegendCategoryHoverMarkers(map: any, geojson: GeoJsonFeatureCollection, categoryLabel: string): void {
+  clearLegendCategoryHoverMarkers(map);
+  const M = getMaplibre() as
+    | {
+        Marker?: new (options?: { color?: string }) => {
+          setLngLat: (ll: [number, number]) => unknown;
+          addTo: (m: unknown) => unknown;
+          remove: () => void;
+        };
+      }
+    | undefined;
+  if (!M?.Marker) return;
+
+  const markers: Array<{ remove: () => void }> = [];
+  for (const f of geojson.features ?? []) {
+    if (!featureMatchesLegendCategory(f, categoryLabel)) continue;
+    for (const ll of markerLngLatsForGeometry(f.geometry)) {
+      if (!ll.every((v) => typeof v === 'number' && Number.isFinite(v))) continue;
+      try {
+        const mk = new M.Marker();
+        mk.setLngLat(ll);
+        mk.addTo(map);
+        markers.push(mk);
+      } catch {
+        /* */
+      }
+    }
+  }
+  map[NC_MAP_LEGEND_HOVER_MARKERS_KEY] = markers;
+}
+
+function bindLegendRowCategoryHover(li: HTMLLIElement, geojson: GeoJsonFeatureCollection, categoryLabel: string): void {
+  li.addEventListener('mouseenter', () => {
+    const map = getRegisteredMap() as any;
+    if (!map) return;
+    applyLegendCategoryHoverMarkers(map, geojson, categoryLabel);
+  });
+  li.addEventListener('mouseleave', () => {
+    const map = getRegisteredMap() as any;
+    if (!map) return;
+    clearLegendCategoryHoverMarkers(map);
+  });
 }
 
 function fitMapToGeoJson(map: any, geojson: GeoJsonFeatureCollection): void {
@@ -661,6 +790,7 @@ const NC_CHATPANEL_GEOJSON_LAYER_PREFIX = 'nc_chatpanel_geojson_';
 /** Chat panelinin haritaya eklediği GeoJSON kaynağı ve katmanlarını kaldırır. */
 function removeChatPanelGeoJsonFromMap(): void {
   const map = getRegisteredMap() as any;
+  if (map) clearLegendCategoryHoverMarkers(map);
   if (!map?.getLayer || !map.removeLayer) return;
 
   const state = map.__ncChatPanelAnim as { rafId?: number } | undefined;
@@ -686,6 +816,8 @@ function removeChatPanelGeoJsonFromMap(): void {
 function addGeoJsonToMap(geojson: GeoJsonFeatureCollection): void {
   const map = getRegisteredMap() as any;
   if (!map || typeof map.addSource !== 'function') return;
+
+  clearLegendCategoryHoverMarkers(map);
 
   const sourceId = NC_CHATPANEL_GEOJSON_SOURCE_ID;
   const layerPrefix = NC_CHATPANEL_GEOJSON_LAYER_PREFIX;
@@ -990,6 +1122,17 @@ function injectStyles(target: ShadowRoot): void {
       font-size: 0.8rem;
       line-height: 1.35;
     }
+    .nc_chatpanel_legend_row.nc_chatpanel_legend_row_hover {
+      margin-left: -4px;
+      margin-right: -4px;
+      padding: 2px 4px;
+      border-radius: 4px;
+      cursor: default;
+      transition: background 0.12s ease;
+    }
+    .nc_chatpanel_legend_row.nc_chatpanel_legend_row_hover:hover {
+      background: rgba(13, 110, 253, 0.09);
+    }
     .nc_chatpanel_legend_row:last-child {
       margin-bottom: 0;
     }
@@ -1177,7 +1320,7 @@ async function fetchAndApplyKentrehberiFeaturesByBbox(dbApiUrl: string, messages
     bubble.appendChild(intro);
     const entries = getFaaliyetLegendEntries(gj);
     if (entries.length > 0) {
-      bubble.appendChild(createKentrehberiLegendElement(entries));
+      bubble.appendChild(createKentrehberiLegendElement(entries, gj));
     }
     messages.appendChild(bubble);
     scrollMessagesToEnd(messages);
