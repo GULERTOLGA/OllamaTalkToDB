@@ -37,7 +37,7 @@ const SEARCH_SCAN_OVERLAY_ID = 'nc_search_scan_overlay';
 /** Büyüteç lens kökü (içinde ikinci MapLibre; fare `pointer-events` haritaya gider). */
 const NC_MAP_MAGNIFY_ROOT_ID = 'nc_map_magnify_lens_root';
 
-const MAGNIFY_LENS_SIZE_PX = 168;
+const MAGNIFY_LENS_SIZE_PX = 252;
 const MAGNIFY_ZOOM_DELTA = 2.5;
 
 type MapMagnifierCleanup = () => void;
