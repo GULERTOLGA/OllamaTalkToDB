@@ -39,6 +39,8 @@ const NC_MAP_MAGNIFY_ROOT_ID = 'nc_map_magnify_lens_root';
 
 const MAGNIFY_LENS_SIZE_PX = 252;
 const MAGNIFY_ZOOM_DELTA = 2.5;
+/** Mercek hareketsiz kaldığında mini haritada feature sayımı (ms). */
+const MAGNIFIER_IDLE_FEATURE_COUNT_MS = 500;
 
 type MapMagnifierCleanup = () => void;
 
@@ -816,33 +818,6 @@ function ensureGeoJsonPointLabelLayer(map: any, sourceId: string, layerPrefix: s
 
 const NC_CHATPANEL_GEOJSON_SOURCE_ID = 'nc_chatpanel_geojson';
 const NC_CHATPANEL_GEOJSON_LAYER_PREFIX = 'nc_chatpanel_geojson_';
-
-function getChatPanelGeoJsonFeatureCount(): number {
-  const map = getRegisteredMap() as {
-    getSource?: (id: string) =>
-      | { serialize?: () => { data?: unknown }; _data?: unknown }
-      | undefined;
-  } | null;
-  if (!map?.getSource?.(NC_CHATPANEL_GEOJSON_SOURCE_ID)) return 0;
-  const src = map.getSource(NC_CHATPANEL_GEOJSON_SOURCE_ID) as {
-    serialize?: () => { data?: unknown };
-    _data?: unknown;
-  };
-  try {
-    const ser = typeof src.serialize === 'function' ? src.serialize() : null;
-    const d = ser?.data as GeoJsonFeatureCollection | undefined;
-    if (d?.type === 'FeatureCollection' && Array.isArray(d.features)) return d.features.length;
-  } catch {
-    /* */
-  }
-  try {
-    const d = src._data as GeoJsonFeatureCollection | undefined;
-    if (d?.type === 'FeatureCollection' && Array.isArray(d.features)) return d.features.length;
-  } catch {
-    /* */
-  }
-  return 0;
-}
 
 /** Chat panelinin haritaya eklediği GeoJSON kaynağı ve katmanlarını kaldırır. */
 function removeChatPanelGeoJsonFromMap(): void {
@@ -1720,11 +1695,24 @@ function attachMapMagnifierLens(): boolean {
   root.appendChild(lens);
   container.appendChild(root);
 
+  let mercekIdleCountTimer: ReturnType<typeof setTimeout> | null = null;
+
+  const clearMercekIdleCountTimer = (): void => {
+    if (mercekIdleCountTimer !== null) {
+      clearTimeout(mercekIdleCountTimer);
+      mercekIdleCountTimer = null;
+    }
+  };
+
   let miniMap: {
     remove: () => void;
     jumpTo: (o: Record<string, unknown>) => void;
     resize: () => void;
     setStyle: (style: unknown, options?: { diff?: boolean }) => void;
+    queryRenderedFeatures?: (
+      geometry?: unknown,
+      options?: { layers?: string[]; filter?: unknown },
+    ) => Array<{ layer?: { id?: string; source?: string }; source?: string }>;
   };
   try {
     const center = mainMap.getCenter();
@@ -1747,6 +1735,45 @@ function attachMapMagnifierLens(): boolean {
 
   let lastPoint: { x: number; y: number } | null = null;
 
+  const logMercekViewportFeatureCount = (): void => {
+    if (lens.style.display === 'none') return;
+    const qrf = miniMap.queryRenderedFeatures;
+    if (typeof qrf !== 'function') return;
+    try {
+      const features = qrf.call(miniMap) as Array<{
+        layer?: { id?: string; source?: string };
+        source?: string;
+      }>;
+      const total = features.length;
+      const byLayer: Record<string, number> = {};
+      const bySource: Record<string, number> = {};
+      for (const f of features) {
+        const lid = f.layer?.id ?? '?';
+        const sid = f.layer?.source ?? f.source ?? '?';
+        byLayer[lid] = (byLayer[lid] ?? 0) + 1;
+        bySource[sid] = (bySource[sid] ?? 0) + 1;
+      }
+      console.log('[chatpanel] mercek 500ms durgun — görünen feature:', total, {
+        katman: byLayer,
+        kaynak: bySource,
+      });
+    } catch (err) {
+      console.warn('[chatpanel] mercek queryRenderedFeatures', err);
+    }
+  };
+
+  const scheduleMercekIdleFeatureCount = (): void => {
+    clearMercekIdleCountTimer();
+    mercekIdleCountTimer = window.setTimeout(() => {
+      mercekIdleCountTimer = null;
+      window.requestAnimationFrame(() => {
+        window.requestAnimationFrame(() => {
+          logMercekViewportFeatureCount();
+        });
+      });
+    }, MAGNIFIER_IDLE_FEATURE_COUNT_MS);
+  };
+
   const syncMiniAtPoint = (): void => {
     if (!lastPoint) return;
     const ll = mainMap.unproject([lastPoint.x, lastPoint.y]);
@@ -1766,14 +1793,17 @@ function attachMapMagnifierLens(): boolean {
     lens.style.top = `${ev.point.y}px`;
     lens.style.display = 'block';
     syncMiniAtPoint();
+    scheduleMercekIdleFeatureCount();
   };
 
   const onMainViewChange = (): void => {
     syncMiniAtPoint();
     miniMap.resize();
+    scheduleMercekIdleFeatureCount();
   };
 
   const onLeave = (): void => {
+    clearMercekIdleCountTimer();
     lens.style.display = 'none';
     lastPoint = null;
   };
@@ -1806,6 +1836,7 @@ function attachMapMagnifierLens(): boolean {
     } catch {
       /* */
     }
+    scheduleMercekIdleFeatureCount();
   };
 
   magnifierSyncStyleAndView = syncMiniStyleFromMain;
@@ -1823,9 +1854,11 @@ function attachMapMagnifierLens(): boolean {
     } catch {
       /* */
     }
+    scheduleMercekIdleFeatureCount();
   });
 
   mapMagnifierCleanup = (): void => {
+    clearMercekIdleCountTimer();
     magnifierSyncStyleAndView = null;
     mainMap.off('mousemove', onMouseMove);
     mainMap.off('move', onMainViewChange);
@@ -1862,22 +1895,16 @@ function showMagnifierChatPanel(scope: ParentNode, mapOk: boolean): void {
   removeMagnifierChatPanel(scope);
   ensureBracketCategoryLinkDelegation(messages);
 
-  const n = getChatPanelGeoJsonFeatureCount();
-
   const bubble = document.createElement('div');
   bubble.className = 'nc_chatpanel_msg nc_chatpanel_msg_ai nc_chatpanel_msg_with_legend';
   bubble.setAttribute('data-nc-magnifier-panel', 'true');
 
   const intro = document.createElement('div');
   intro.className = 'nc_chatpanel_legend_intro';
-  intro.textContent = 'Büyüteç'
+  intro.textContent = 'Büyüteç';
 
   const legendWrap = document.createElement('div');
   legendWrap.className = 'nc_chatpanel_legend';
-
-  const heading = document.createElement('div');
-  heading.className = 'nc_chatpanel_legend_heading';
-  heading.textContent = '';
 
   const scroll = document.createElement('div');
   scroll.className = 'nc_chatpanel_magnifier_scroll';
@@ -1889,7 +1916,6 @@ function showMagnifierChatPanel(scope: ParentNode, mapOk: boolean): void {
     : 'Harita veya maplibregl bulunamadığı için lens gösterilemedi. Sayfayı yenileyip tekrar deneyin.';
 
   scroll.appendChild(p);
-  legendWrap.appendChild(heading);
   legendWrap.appendChild(scroll);
 
   bubble.appendChild(intro);
