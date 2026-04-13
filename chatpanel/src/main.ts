@@ -1,30 +1,17 @@
 import { showSearchScanOverlay, hideSearchScanOverlay } from './features/searchScanOverlay';
+import {
+  getActiveMapInstanceName,
+  getMaplibre,
+  getRegisteredMap,
+  setActiveMapInstanceName,
+} from './services/map/registry';
 import { escapeHtml, isPlainObject, scrollMessagesToEnd } from './shared/utils/textAndDom';
 
-export { showSearchScanOverlay, hideSearchScanOverlay };
+export { showSearchScanOverlay, hideSearchScanOverlay, getRegisteredMap, getMaplibre };
 
 const ROOT_ID = 'nc_chatpanel_root';
 const BOOTSTRAP_CSS_URL =
   'https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css';
-
-let activeMapInstanceName: string | null = null;
-
-/**
- * Host `window.__ncMapRegistry__[mapInstanceName]` ile MapLibre `Map` koyar.
- * İsteğe bağlı: `window.maplibregl` (MapLibre modülü) — Marker, katman vb. için.
- */
-
-/** Kayıtlı harita örneği (ör. maplibregl.Map) veya yoksa null. */
-export function getRegisteredMap(): unknown | null {
-  const name = activeMapInstanceName;
-  if (!name || typeof window === 'undefined') return null;
-  return window.__ncMapRegistry__?.[name] ?? null;
-}
-
-/** Host atanmışsa `window.maplibregl` (MapLibre API); yoksa undefined. */
-export function getMaplibre(): unknown {
-  return (window as Window & { maplibregl?: unknown }).maplibregl;
-}
 
 const DEFAULT_N8N_PROXY_URL = 'http://localhost:3001/api/n8n';
 const DEFAULT_DB_API_URL = 'http://localhost:3001/api';
@@ -2166,7 +2153,7 @@ export function initChatPanel(options: ChatPanelOptions = {}): HTMLElement {
   const mapName = resolveMapInstanceName(options);
   const n8nProxyUrl = resolveN8nProxyUrl(options);
   const dbApiUrl = resolveDbApiUrl(options);
-  activeMapInstanceName = mapName ?? null;
+  setActiveMapInstanceName(mapName ?? null);
 
   if (root) {
     if (mapName) root.setAttribute('data-nc-map-instance', mapName);
@@ -2207,7 +2194,7 @@ export function initChatPanel(options: ChatPanelOptions = {}): HTMLElement {
 
 const globalApi = {
   init: (options?: ChatPanelOptions) => initChatPanel(options ?? {}),
-  getMapInstanceName: (): string | null => activeMapInstanceName,
+  getMapInstanceName: (): string | null => getActiveMapInstanceName(),
   getRegisteredMap,
   getMaplibre,
 };
