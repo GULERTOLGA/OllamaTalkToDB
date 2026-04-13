@@ -15,6 +15,7 @@ chatpanel/
     ├── vite-env.d.ts
     ├── features/           # Davranış modülleri
     │   ├── geoJsonMapLayers.ts   # Haritaya GeoJSON, lejant, etiket, pulse
+    │   ├── kentrehberiWisart.ts  # WISART (n8n/kentrehberi), bbox, features-by-bbox
     │   ├── mapMagnifier.ts       # Harita büyüteci lens + araç çubuğu bağlama
     │   ├── n8nNews.ts            # Haber/sosyal sekmesi, cache, fetch
     │   ├── panelChatN8n.ts       # Form sohbeti, n8n POST, köşeli parantez linkleri
@@ -33,7 +34,8 @@ chatpanel/
 
 | Alan | Dosya | Sorumluluk |
 |------|--------|------------|
-| Giriş | `main.ts` | `initChatPanel`, URL/script’ten seçenekler, sekmeler, WISART, temizle, karşılama mesajı |
+| Giriş | `main.ts` | `initChatPanel`, URL/script’ten seçenekler, sekmeler, temizle, karşılama mesajı |
+| Kent Rehberi WISART | `features/kentrehberiWisart.ts` | Harita bbox, `bindWisartButton`, `features-by-bbox` + GeoJSON/lejant |
 | Harita verisi | `features/geoJsonMapLayers.ts` | Kaynak/katman ekleme-kaldırma, faaliyet renkleri, lejant DOM’u |
 | Büyüteç | `features/mapMagnifier.ts` | Lens, stil senkronu; köşeli link delegasyonu `main` üzerinden enjekte edilir |
 | Haberler | `features/n8nNews.ts` | `/news` proxy, localStorage cache, tab içerik render |
