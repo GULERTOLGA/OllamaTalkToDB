@@ -1,3 +1,5 @@
+import { escapeHtml, isPlainObject, scrollMessagesToEnd } from './shared/utils/textAndDom';
+
 const ROOT_ID = 'nc_chatpanel_root';
 const BOOTSTRAP_CSS_URL =
   'https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css';
@@ -946,24 +948,6 @@ async function postChatToN8n(proxyUrl: string, chatInput: string): Promise<strin
   }
 
   return parseAssistantText(maybe, raw);
-}
-
-function scrollMessagesToEnd(messages: HTMLElement): void {
-  requestAnimationFrame(() => {
-    messages.scrollTop = messages.scrollHeight;
-  });
-}
-
-function escapeHtml(text: string): string {
-  return text
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;');
-}
-
-function isPlainObject(x: unknown): x is Record<string, unknown> {
-  return typeof x === 'object' && x !== null && !Array.isArray(x);
 }
 
 function formatNewsDateLabel(iso: string): string {
