@@ -24,11 +24,25 @@ export function getMaplibre(): unknown {
 const DEFAULT_N8N_PROXY_URL = 'http://localhost:3001/api/n8n';
 const DEFAULT_DB_API_URL = 'http://localhost:3001/api';
 
+/** n8n /news yanıtı; endpoint eşleşirse ve TTL dolmamışsa ağ yerine kullanılır. */
+const NC_N8N_NEWS_CACHE_KEY = 'nc_chatpanel_n8n_news_v1';
+const NC_N8N_NEWS_CACHE_TTL_MS = 60 * 60 * 1000;
+
 const NC_CHAT_PANEL_WELCOME_AI =
   "Merhaba, Ben Alanya Belediyesi Kent Rehberi'niz Neco. Size nasıl yardımcı olabilirim?";
 
 const SEARCH_SCAN_STYLE_ID = 'nc_search_scan_styles';
 const SEARCH_SCAN_OVERLAY_ID = 'nc_search_scan_overlay';
+
+/** Büyüteç lens kökü (içinde ikinci MapLibre; fare `pointer-events` haritaya gider). */
+const NC_MAP_MAGNIFY_ROOT_ID = 'nc_map_magnify_lens_root';
+
+const MAGNIFY_LENS_SIZE_PX = 168;
+const MAGNIFY_ZOOM_DELTA = 2.5;
+
+type MapMagnifierCleanup = () => void;
+
+let mapMagnifierCleanup: MapMagnifierCleanup | null = null;
 
 let searchScanOverlayDepth = 0;
 let searchScanOverlayEl: HTMLElement | null = null;
@@ -932,6 +946,92 @@ function escapeHtml(text: string): string {
     .replace(/"/g, '&quot;');
 }
 
+function isPlainObject(x: unknown): x is Record<string, unknown> {
+  return typeof x === 'object' && x !== null && !Array.isArray(x);
+}
+
+function formatNewsDateLabel(iso: string): string {
+  try {
+    const d = new Date(iso);
+    if (Number.isNaN(d.getTime())) return iso;
+    return d.toLocaleString('tr-TR', { dateStyle: 'medium', timeStyle: 'short' });
+  } catch {
+    return iso;
+  }
+}
+
+function showNewsTabsLoading(scope: ParentNode): void {
+  const haberlerEl = scope.querySelector<HTMLElement>('#nc_chatpanel_haberler_body');
+  const sosyalEl = scope.querySelector<HTMLElement>('#nc_chatpanel_sosyal_body');
+  const msg = '<p class="nc_chatpanel_hint mb-0">Yükleniyor…</p>';
+  if (haberlerEl) haberlerEl.innerHTML = msg;
+  if (sosyalEl) sosyalEl.innerHTML = msg;
+}
+
+/** n8n /news JSON: `twitter` → sosyal sekmesi, `news.haberler` → haberler sekmesi */
+function renderN8nNewsTabs(scope: ParentNode, data: unknown): void {
+  const haberlerEl = scope.querySelector<HTMLElement>('#nc_chatpanel_haberler_body');
+  const sosyalEl = scope.querySelector<HTMLElement>('#nc_chatpanel_sosyal_body');
+  if (!haberlerEl || !sosyalEl) return;
+
+  const emptyHint = '<p class="nc_chatpanel_hint mb-0">Gösterilecek içerik yok.</p>';
+
+  if (!isPlainObject(data)) {
+    haberlerEl.innerHTML = emptyHint;
+    sosyalEl.innerHTML = emptyHint;
+    return;
+  }
+
+  const twitterRaw = data.twitter;
+  const newsRaw = data.news;
+
+  if (Array.isArray(twitterRaw) && twitterRaw.length > 0) {
+    const chunks: string[] = ['<div class="nc_chatpanel_tweet_list">'];
+    for (const item of twitterRaw) {
+      if (!isPlainObject(item)) continue;
+      const text = typeof item.text === 'string' ? item.text : '';
+      const createdAt = typeof item.created_at === 'string' ? item.created_at : '';
+      const meta = createdAt ? formatNewsDateLabel(createdAt) : '';
+      const textHtml = escapeHtml(text).replace(/\n/g, '<br />');
+      chunks.push(`<article class="nc_chatpanel_tweet_card">
+        <div class="nc_chatpanel_tweet_meta">${escapeHtml(meta)}</div>
+        <div class="nc_chatpanel_tweet_text">${textHtml}</div>
+      </article>`);
+    }
+    chunks.push('</div>');
+    sosyalEl.innerHTML = chunks.join('');
+  } else {
+    sosyalEl.innerHTML = emptyHint;
+  }
+
+  let haberlerList: unknown[] = [];
+  if (isPlainObject(newsRaw) && Array.isArray(newsRaw.haberler)) {
+    haberlerList = newsRaw.haberler;
+  }
+
+  if (haberlerList.length > 0) {
+    const chunks: string[] = ['<div class="nc_chatpanel_haber_list">'];
+    for (const h of haberlerList) {
+      if (!isPlainObject(h)) continue;
+      const baslik = typeof h.baslik === 'string' ? h.baslik : '';
+      const tarih = typeof h.tarih === 'string' ? h.tarih : '';
+      const yer = typeof h.yer === 'string' ? h.yer : '';
+      const aciklama = typeof h.kisa_aciklama === 'string' ? h.kisa_aciklama : '';
+      const metaParts = [tarih, yer].filter(Boolean);
+      const metaLine = metaParts.length > 0 ? `<div class="nc_chatpanel_haber_meta">${escapeHtml(metaParts.join(' · '))}</div>` : '';
+      chunks.push(`<article class="nc_chatpanel_haber_card">
+        <h3 class="nc_chatpanel_haber_title">${escapeHtml(baslik)}</h3>
+        ${metaLine}
+        <p class="nc_chatpanel_haber_desc">${escapeHtml(aciklama)}</p>
+      </article>`);
+    }
+    chunks.push('</div>');
+    haberlerEl.innerHTML = chunks.join('');
+  } else {
+    haberlerEl.innerHTML = emptyHint;
+  }
+}
+
 /**
  * Düz metinde [Kategori] ifadelerini güvenli HTML linkine çevirir (data-cat = parantez içi metin).
  */
@@ -1017,6 +1117,116 @@ function injectStyles(target: ShadowRoot): void {
     .nc_chatpanel_header {
       flex-shrink: 0;
       font-weight: 600;
+    }
+    .nc_chatpanel_tabbar {
+      flex-shrink: 0;
+      display: flex;
+      background: #fff;
+      border-bottom: 1px solid #dee2e6;
+    }
+    .nc_chatpanel_tab_btn {
+      flex: 1;
+      margin: 0;
+      border: none;
+      border-bottom: 2px solid transparent;
+      background: #e9ecef;
+      padding: 8px 10px;
+      font-size: 0.8rem;
+      font-weight: 600;
+      color: #495057;
+      cursor: pointer;
+      transition: background 0.12s ease, color 0.12s ease;
+    }
+    .nc_chatpanel_tab_btn:hover {
+      background: #f1f3f5;
+    }
+    .nc_chatpanel_tab_btn.nc_chatpanel_tab_btn--active {
+      background: #fff;
+      color: #0d6efd;
+      border-bottom-color: #0d6efd;
+    }
+    .nc_chatpanel_tab_panes {
+      flex: 1 1 auto;
+      min-height: 0;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+    .nc_chatpanel_tab_pane {
+      display: none;
+      flex-direction: column;
+      flex: 1 1 auto;
+      min-height: 0;
+      overflow: hidden;
+    }
+    .nc_chatpanel_tab_pane.nc_chatpanel_tab_pane--active {
+      display: flex;
+    }
+    .nc_chatpanel_tab_secondary_scroll {
+      flex: 1 1 auto;
+      min-height: 0;
+      overflow-y: auto;
+      overflow-x: hidden;
+      padding: 12px;
+      background: #f8f9fa;
+      font-size: 0.875rem;
+      line-height: 1.45;
+      color: #212529;
+    }
+    .nc_chatpanel_haber_list {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+    .nc_chatpanel_haber_card {
+      background: #fff;
+      border: 1px solid #e9ecef;
+      border-radius: 10px;
+      padding: 10px 12px;
+      box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+    }
+    .nc_chatpanel_haber_title {
+      font-weight: 600;
+      font-size: 0.9rem;
+      margin: 0 0 6px 0;
+      color: #0d6efd;
+      line-height: 1.35;
+    }
+    .nc_chatpanel_haber_meta {
+      font-size: 0.75rem;
+      color: #6c757d;
+      margin-bottom: 8px;
+      line-height: 1.35;
+    }
+    .nc_chatpanel_haber_desc {
+      font-size: 0.82rem;
+      margin: 0;
+      color: #212529;
+      line-height: 1.45;
+    }
+    .nc_chatpanel_tweet_list {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+    .nc_chatpanel_tweet_card {
+      background: #fff;
+      border: 1px solid #e9ecef;
+      border-radius: 10px;
+      padding: 10px 12px;
+    }
+    .nc_chatpanel_tweet_meta {
+      font-size: 0.72rem;
+      color: #6c757d;
+      margin-bottom: 8px;
+    }
+    .nc_chatpanel_tweet_text {
+      font-size: 0.82rem;
+      white-space: pre-wrap;
+      word-break: break-word;
+      margin: 0;
+      line-height: 1.45;
+      color: #212529;
     }
     .nc_chatpanel_messages {
       flex: 1 1 auto;
@@ -1184,55 +1394,126 @@ function injectStyles(target: ShadowRoot): void {
 function createPanelMarkup(): string {
   return `
     <div class="nc_chatpanel_header bg-primary text-white px-3 py-2">NEco Keos AI</div>
-    <div class="nc_chatpanel_toolbox px-2 py-2 border-bottom">
+    <div class="nc_chatpanel_tabbar" role="tablist" aria-label="Panel sekmeleri">
       <button
         type="button"
-        class="btn btn-success btn-sm nc_chatpanel_wisart_btn"
-        id="nc_chatpanel_wisart_btn"
-        title="WISART"
-        aria-label="WISART"
+        class="nc_chatpanel_tab_btn nc_chatpanel_tab_btn--active"
+        id="nc_chatpanel_tab_btn_kentrehberi"
+        role="tab"
+        aria-selected="true"
+        aria-controls="nc_chatpanel_tab_panel_kentrehberi"
+        data-nc-tab="kentrehberi"
       >
-        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-          <path d="M12 3L14.78 8.63L21 9.54L16.5 13.92L17.56 20.1L12 17.17L6.44 20.1L7.5 13.92L3 9.54L9.22 8.63L12 3Z" fill="currentColor"/>
-        </svg>
+        Kent rehberi
       </button>
       <button
         type="button"
-        class="btn btn-outline-info btn-sm nc_chatpanel_news_btn"
-        id="nc_chatpanel_news_btn"
-        title="Haber (n8n)"
-        aria-label="Haber"
+        class="nc_chatpanel_tab_btn"
+        id="nc_chatpanel_tab_btn_haberler"
+        role="tab"
+        aria-selected="false"
+        aria-controls="nc_chatpanel_tab_panel_haberler"
+        data-nc-tab="haberler"
       >
-        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-          <path d="M4 22h16a2 2 0 0 0 2-2V4a2 2 0 0 0-2-2H8a2 2 0 0 0-2 2v16a2 2 0 0 1-2 2Zm0 0a2 2 0 0 1-2-2v-9c0-1.1.9-2 2-2h2"/>
-          <path d="M18 14h-8"/>
-          <path d="M15 18h-5"/>
-          <path d="M10 6h8v4h-8V6Z"/>
-        </svg>
+        Haberler
       </button>
       <button
         type="button"
-        class="btn btn-outline-secondary btn-sm nc_chatpanel_clear_btn"
-        id="nc_chatpanel_clear_btn"
-        title="Sohbeti temizle ve haritadaki panel katmanını kaldır"
-        aria-label="Temizle"
+        class="nc_chatpanel_tab_btn"
+        id="nc_chatpanel_tab_btn_sosyal"
+        role="tab"
+        aria-selected="false"
+        aria-controls="nc_chatpanel_tab_panel_sosyal"
+        data-nc-tab="sosyal"
       >
-        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-          <path d="M3 6h18"/>
-          <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/>
-          <path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
-        </svg>
+        Sosyal medya
       </button>
     </div>
-    <div class="nc_chatpanel_messages" id="nc_chatpanel_messages">
-      
-    </div>
-    <form class="nc_chatpanel_form p-2" id="nc_chatpanel_form" autocomplete="off">
-      <div class="input-group input-group-sm">
-        <input class="form-control" id="nc_chatpanel_input" type="text" placeholder="Mesaj yazın…" />
-        <button class="btn btn-primary" type="submit">Gönder</button>
+    <div class="nc_chatpanel_tab_panes">
+      <div
+        class="nc_chatpanel_tab_pane nc_chatpanel_tab_pane--active"
+        id="nc_chatpanel_tab_panel_kentrehberi"
+        role="tabpanel"
+        aria-labelledby="nc_chatpanel_tab_btn_kentrehberi"
+      >
+        <div class="nc_chatpanel_toolbox px-2 py-2 border-bottom">
+          <button
+            type="button"
+            class="btn btn-success btn-sm nc_chatpanel_wisart_btn"
+            id="nc_chatpanel_wisart_btn"
+            title="WISART"
+            aria-label="WISART"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+              <path d="M12 3L14.78 8.63L21 9.54L16.5 13.92L17.56 20.1L12 17.17L6.44 20.1L7.5 13.92L3 9.54L9.22 8.63L12 3Z" fill="currentColor"/>
+            </svg>
+          </button>
+          <button
+            type="button"
+            class="btn btn-outline-info btn-sm nc_chatpanel_news_btn"
+            id="nc_chatpanel_news_btn"
+            title="Haber (n8n)"
+            aria-label="Haber"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M4 22h16a2 2 0 0 0 2-2V4a2 2 0 0 0-2-2H8a2 2 0 0 0-2 2v16a2 2 0 0 1-2 2Zm0 0a2 2 0 0 1-2-2v-9c0-1.1.9-2 2-2h2"/>
+              <path d="M18 14h-8"/>
+              <path d="M15 18h-5"/>
+              <path d="M10 6h8v4h-8V6Z"/>
+            </svg>
+          </button>
+          <button
+            type="button"
+            class="btn btn-outline-primary btn-sm nc_chatpanel_map_circle_btn"
+            id="nc_chatpanel_map_circle_btn"
+            title="Harita büyüteci: fareyle yakınlaştırılmış görünüm"
+            aria-label="Harita büyüteci"
+            aria-pressed="false"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <circle cx="11" cy="11" r="8"/>
+              <path d="m21 21-4.3-4.3"/>
+            </svg>
+          </button>
+          <button
+            type="button"
+            class="btn btn-outline-secondary btn-sm nc_chatpanel_clear_btn"
+            id="nc_chatpanel_clear_btn"
+            title="Sohbeti temizle ve haritadaki panel katmanını kaldır"
+            aria-label="Temizle"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M3 6h18"/>
+              <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/>
+              <path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
+            </svg>
+          </button>
+        </div>
+        <div class="nc_chatpanel_messages" id="nc_chatpanel_messages"></div>
+        <form class="nc_chatpanel_form p-2" id="nc_chatpanel_form" autocomplete="off">
+          <div class="input-group input-group-sm">
+            <input class="form-control" id="nc_chatpanel_input" type="text" placeholder="Mesaj yazın…" />
+            <button class="btn btn-primary" type="submit">Gönder</button>
+          </div>
+        </form>
       </div>
-    </form>
+      <div
+        class="nc_chatpanel_tab_pane"
+        id="nc_chatpanel_tab_panel_haberler"
+        role="tabpanel"
+        aria-labelledby="nc_chatpanel_tab_btn_haberler"
+      >
+        <div class="nc_chatpanel_tab_secondary_scroll" id="nc_chatpanel_haberler_body"></div>
+      </div>
+      <div
+        class="nc_chatpanel_tab_pane"
+        id="nc_chatpanel_tab_panel_sosyal"
+        role="tabpanel"
+        aria-labelledby="nc_chatpanel_tab_btn_sosyal"
+      >
+        <div class="nc_chatpanel_tab_secondary_scroll" id="nc_chatpanel_sosyal_body"></div>
+      </div>
+    </div>
   `;
 }
 
@@ -1312,6 +1593,194 @@ function getMapBBox4326FromRegistry(): [number, number, number, number] | null {
     return null;
   }
   return [minLng, minLat, maxLng, maxLat];
+}
+
+function removeMapMagnifierLens(): void {
+  if (typeof document === 'undefined') return;
+  try {
+    mapMagnifierCleanup?.();
+  } catch {
+    /* */
+  }
+  mapMagnifierCleanup = null;
+  document.getElementById(NC_MAP_MAGNIFY_ROOT_ID)?.remove();
+}
+
+/**
+ * magnify.js benzeri: fare konumunda dairesel lens, içinde yakınlaştırılmış harita.
+ * Lens ve kök `pointer-events: none` — sürükleme/zoom ana haritada kalır.
+ */
+function attachMapMagnifierLens(): boolean {
+  if (typeof document === 'undefined') return false;
+  const maplibre = (window as Window & { maplibregl?: { Map: new (opts: unknown) => { remove: () => void; jumpTo: (o: Record<string, unknown>) => void; resize: () => void } } })
+    .maplibregl;
+
+  const mainMap = getRegisteredMap() as {
+    getContainer: () => HTMLElement;
+    getZoom: () => number;
+    getCenter: () => { lng: number; lat: number };
+    getStyle: () => unknown;
+    getBearing: () => number;
+    getPitch: () => number;
+    unproject: (p: [number, number]) => { lng: number; lat: number };
+    on: (ev: string, fn: (e: unknown) => void) => unknown;
+    off: (ev: string, fn: (e: unknown) => void) => void;
+  } | null;
+
+  if (!maplibre?.Map || !mainMap?.getContainer || typeof mainMap.unproject !== 'function') {
+    return false;
+  }
+
+  removeMapMagnifierLens();
+
+  const container = mainMap.getContainer();
+  const pos = window.getComputedStyle(container).position;
+  if (pos === 'static' || pos === '') {
+    container.style.position = 'relative';
+  }
+
+  const root = document.createElement('div');
+  root.id = NC_MAP_MAGNIFY_ROOT_ID;
+  root.setAttribute('aria-hidden', 'true');
+  root.style.cssText = 'position:absolute;inset:0;pointer-events:none;z-index:6;overflow:visible;';
+
+  const lens = document.createElement('div');
+  lens.className = 'nc_map_magnify_lens';
+  lens.style.cssText = [
+    'position:absolute',
+    'display:none',
+    `width:${MAGNIFY_LENS_SIZE_PX}px`,
+    `height:${MAGNIFY_LENS_SIZE_PX}px`,
+    'border-radius:50%',
+    'overflow:hidden',
+    'box-sizing:border-box',
+    'border:3px solid rgba(13,110,253,0.95)',
+    'box-shadow:0 0 0 2px rgba(255,255,255,0.85),0 8px 28px rgba(0,0,0,0.22)',
+    'pointer-events:none',
+    'transform:translate(-50%,-50%)',
+    'left:0',
+    'top:0',
+  ].join(';');
+
+  const miniEl = document.createElement('div');
+  miniEl.className = 'nc_map_magnify_lens_map';
+  miniEl.style.cssText = 'width:100%;height:100%;position:relative;';
+  lens.appendChild(miniEl);
+  root.appendChild(lens);
+  container.appendChild(root);
+
+  let miniMap: { remove: () => void; jumpTo: (o: Record<string, unknown>) => void; resize: () => void };
+  try {
+    const center = mainMap.getCenter();
+    miniMap = new maplibre.Map({
+      container: miniEl,
+      style: mainMap.getStyle(),
+      center: [center.lng, center.lat] as [number, number],
+      zoom: Math.min(mainMap.getZoom() + MAGNIFY_ZOOM_DELTA, 22),
+      bearing: mainMap.getBearing(),
+      pitch: mainMap.getPitch(),
+      interactive: false,
+      attributionControl: false,
+      maxZoom: 24,
+    }) as typeof miniMap;
+  } catch (err) {
+    console.warn('[chatpanel] Büyüteç mini harita oluşturulamadı', err);
+    root.remove();
+    return false;
+  }
+
+  let lastPoint: { x: number; y: number } | null = null;
+
+  const syncMiniAtPoint = (): void => {
+    if (!lastPoint) return;
+    const ll = mainMap.unproject([lastPoint.x, lastPoint.y]);
+    miniMap.jumpTo({
+      center: [ll.lng, ll.lat],
+      zoom: Math.min(mainMap.getZoom() + MAGNIFY_ZOOM_DELTA, 22),
+      bearing: mainMap.getBearing(),
+      pitch: mainMap.getPitch(),
+    });
+  };
+
+  const onMouseMove = (e: unknown): void => {
+    const ev = e as { point?: { x: number; y: number } };
+    if (!ev.point) return;
+    lastPoint = { x: ev.point.x, y: ev.point.y };
+    lens.style.left = `${ev.point.x}px`;
+    lens.style.top = `${ev.point.y}px`;
+    lens.style.display = 'block';
+    syncMiniAtPoint();
+  };
+
+  const onMainViewChange = (): void => {
+    syncMiniAtPoint();
+    miniMap.resize();
+  };
+
+  const onLeave = (): void => {
+    lens.style.display = 'none';
+    lastPoint = null;
+  };
+
+  mainMap.on('mousemove', onMouseMove);
+  mainMap.on('move', onMainViewChange);
+  mainMap.on('zoom', onMainViewChange);
+  mainMap.on('rotate', onMainViewChange);
+  mainMap.on('pitch', onMainViewChange);
+  container.addEventListener('mouseleave', onLeave);
+
+  window.requestAnimationFrame(() => {
+    try {
+      miniMap.resize();
+    } catch {
+      /* */
+    }
+  });
+
+  mapMagnifierCleanup = (): void => {
+    mainMap.off('mousemove', onMouseMove);
+    mainMap.off('move', onMainViewChange);
+    mainMap.off('zoom', onMainViewChange);
+    mainMap.off('rotate', onMainViewChange);
+    mainMap.off('pitch', onMainViewChange);
+    container.removeEventListener('mouseleave', onLeave);
+    try {
+      miniMap.remove();
+    } catch {
+      /* */
+    }
+  };
+
+  return true;
+}
+
+function syncMapMagnifierButtonUi(btn: HTMLButtonElement): void {
+  const on = typeof document !== 'undefined' && !!document.getElementById(NC_MAP_MAGNIFY_ROOT_ID);
+  btn.classList.toggle('btn-primary', on);
+  btn.classList.toggle('btn-outline-primary', !on);
+  btn.setAttribute('aria-pressed', on ? 'true' : 'false');
+}
+
+function bindMapMagnifierButton(scope: ParentNode): void {
+  const btn = scope.querySelector<HTMLButtonElement>('#nc_chatpanel_map_circle_btn');
+  if (!btn) return;
+  if (btn.dataset.ncBoundMapCircle === 'true') return;
+  btn.dataset.ncBoundMapCircle = 'true';
+
+  syncMapMagnifierButtonUi(btn);
+
+  btn.addEventListener('click', () => {
+    const had = !!document.getElementById(NC_MAP_MAGNIFY_ROOT_ID);
+    if (had) {
+      removeMapMagnifierLens();
+    } else {
+      const ok = attachMapMagnifierLens();
+      if (!ok) {
+        console.warn('[chatpanel] Harita veya maplibregl yok; büyüteç açılamadı.');
+      }
+    }
+    syncMapMagnifierButtonUi(btn);
+  });
 }
 
 const NC_WISART_THEN_FEATURES_DELAY_MS = 100;
@@ -1394,6 +1863,10 @@ async function fetchAndApplyKentrehberiFeaturesByBbox(dbApiUrl: string, messages
 }
 
 function resetChatPanelToInitialState(scope: ParentNode): void {
+  removeMapMagnifierLens();
+  const circleBtn = scope.querySelector<HTMLButtonElement>('#nc_chatpanel_map_circle_btn');
+  if (circleBtn) syncMapMagnifierButtonUi(circleBtn);
+
   const messages = scope.querySelector<HTMLElement>('#nc_chatpanel_messages');
   const input = scope.querySelector<HTMLInputElement>('#nc_chatpanel_input');
 
@@ -1425,31 +1898,152 @@ function bindClearPanelButton(scope: ParentNode): void {
   });
 }
 
+type ChatPanelTabId = 'kentrehberi' | 'haberler' | 'sosyal';
+
+type N8nNewsCachedEntry = {
+  ts: number;
+  endpoint: string;
+  status: number;
+  data: unknown;
+};
+
+function readFreshN8nNewsCache(expectedEndpoint: string): N8nNewsCachedEntry | null {
+  if (typeof localStorage === 'undefined') return null;
+  try {
+    const raw = localStorage.getItem(NC_N8N_NEWS_CACHE_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as Partial<N8nNewsCachedEntry>;
+    if (
+      typeof parsed.ts !== 'number' ||
+      typeof parsed.endpoint !== 'string' ||
+      parsed.endpoint !== expectedEndpoint
+    ) {
+      return null;
+    }
+    if (Date.now() - parsed.ts > NC_N8N_NEWS_CACHE_TTL_MS) return null;
+    return parsed as N8nNewsCachedEntry;
+  } catch {
+    return null;
+  }
+}
+
+function writeN8nNewsCache(entry: { endpoint: string; status: number; data: unknown }): void {
+  if (typeof localStorage === 'undefined') return;
+  try {
+    const payload: N8nNewsCachedEntry = {
+      ts: Date.now(),
+      endpoint: entry.endpoint,
+      status: entry.status,
+      data: entry.data,
+    };
+    localStorage.setItem(NC_N8N_NEWS_CACHE_KEY, JSON.stringify(payload));
+  } catch {
+    /* quota / gizli mod */
+  }
+}
+
+async function fetchN8nNewsAndLogConsole(
+  scope: ParentNode,
+  n8nProxyUrl: string,
+  context?: string,
+): Promise<void> {
+  const endpoint = resolveN8nNewsProxyUrl(n8nProxyUrl);
+
+  const cached = readFreshN8nNewsCache(endpoint);
+  if (cached) {
+    console.log('[chatpanel] n8n news yanıtı', {
+      context,
+      endpoint,
+      status: cached.status,
+      data: cached.data,
+      fromCache: true,
+      cachedAt: new Date(cached.ts).toISOString(),
+    });
+    renderN8nNewsTabs(scope, cached.data);
+    return;
+  }
+
+  showNewsTabsLoading(scope);
+
+  try {
+    const fd = new FormData();
+    fd.append('chatInput', 'haberler');
+    const resp = await fetch(endpoint, { method: 'POST', body: fd });
+    const raw = await resp.text();
+    let data: unknown = raw;
+    try {
+      data = JSON.parse(raw);
+    } catch {
+      /* metin yanıt */
+    }
+    console.log('[chatpanel] n8n news yanıtı', { context, endpoint, status: resp.status, data });
+    if (resp.ok) {
+      writeN8nNewsCache({ endpoint, status: resp.status, data });
+    }
+    renderN8nNewsTabs(scope, data);
+  } catch (err) {
+    console.error('[chatpanel] n8n news istek hatası', context, err);
+    const errHtml = '<p class="nc_chatpanel_hint mb-0">Haberler yüklenirken hata oluştu.</p>';
+    const haberlerEl = scope.querySelector<HTMLElement>('#nc_chatpanel_haberler_body');
+    const sosyalEl = scope.querySelector<HTMLElement>('#nc_chatpanel_sosyal_body');
+    if (haberlerEl) haberlerEl.innerHTML = errHtml;
+    if (sosyalEl) sosyalEl.innerHTML = errHtml;
+  }
+}
+
+function bindTabBar(scope: ParentNode, n8nProxyUrl: string): void {
+  const bar = scope.querySelector<HTMLElement>('.nc_chatpanel_tabbar');
+  if (!bar || bar.dataset.ncBoundTabs === 'true') return;
+  bar.dataset.ncBoundTabs = 'true';
+
+  const btnKent = scope.querySelector<HTMLButtonElement>('#nc_chatpanel_tab_btn_kentrehberi');
+  const btnHaberler = scope.querySelector<HTMLButtonElement>('#nc_chatpanel_tab_btn_haberler');
+  const btnSosyal = scope.querySelector<HTMLButtonElement>('#nc_chatpanel_tab_btn_sosyal');
+  const panelKent = scope.querySelector<HTMLElement>('#nc_chatpanel_tab_panel_kentrehberi');
+  const panelHaberler = scope.querySelector<HTMLElement>('#nc_chatpanel_tab_panel_haberler');
+  const panelSosyal = scope.querySelector<HTMLElement>('#nc_chatpanel_tab_panel_sosyal');
+  if (!btnKent || !btnHaberler || !btnSosyal || !panelKent || !panelHaberler || !panelSosyal) return;
+
+  const tabs: Array<{ id: ChatPanelTabId; btn: HTMLButtonElement; panel: HTMLElement }> = [
+    { id: 'kentrehberi', btn: btnKent, panel: panelKent },
+    { id: 'haberler', btn: btnHaberler, panel: panelHaberler },
+    { id: 'sosyal', btn: btnSosyal, panel: panelSosyal },
+  ];
+
+  let lastActiveId: ChatPanelTabId = 'kentrehberi';
+
+  const activate = (activeId: ChatPanelTabId): void => {
+    for (const t of tabs) {
+      const on = t.id === activeId;
+      t.btn.classList.toggle('nc_chatpanel_tab_btn--active', on);
+      t.btn.setAttribute('aria-selected', on ? 'true' : 'false');
+      t.panel.classList.toggle('nc_chatpanel_tab_pane--active', on);
+    }
+  };
+
+  for (const t of tabs) {
+    t.btn.addEventListener('click', () => {
+      if (t.id === lastActiveId) return;
+      lastActiveId = t.id;
+      activate(t.id);
+      if (t.id === 'haberler' || t.id === 'sosyal') {
+        void fetchN8nNewsAndLogConsole(scope, n8nProxyUrl, `sekme:${t.id}`);
+      }
+    });
+  }
+}
+
 function bindNewsButton(scope: ParentNode, n8nProxyUrl: string): void {
   const btn = scope.querySelector<HTMLButtonElement>('#nc_chatpanel_news_btn');
   if (!btn) return;
   if (btn.dataset.ncBoundNews === 'true') return;
   btn.dataset.ncBoundNews = 'true';
 
-  const endpoint = resolveN8nNewsProxyUrl(n8nProxyUrl);
-
   btn.addEventListener('click', async () => {
     if (btn.disabled) return;
     btn.disabled = true;
     try {
-      const fd = new FormData();
-      fd.append('chatInput', 'haberler');
-      const resp = await fetch(endpoint, { method: 'POST', body: fd });
-      const raw = await resp.text();
-      let data: unknown = raw;
-      try {
-        data = JSON.parse(raw);
-      } catch {
-        /* metin yanıt */
-      }
-      console.log('[chatpanel] n8n news yanıtı', { endpoint, status: resp.status, data });
-    } catch (err) {
-      console.error('[chatpanel] n8n news istek hatası', err);
+      await fetchN8nNewsAndLogConsole(scope, n8nProxyUrl, 'toolbar');
     } finally {
       btn.disabled = false;
     }
@@ -1562,8 +2156,10 @@ export function initChatPanel(options: ChatPanelOptions = {}): HTMLElement {
     if (mapName) root.setAttribute('data-nc-map-instance', mapName);
     const shadow = root.shadowRoot;
     if (shadow) {
+      bindTabBar(shadow, n8nProxyUrl);
       bindWisartButton(shadow, dbApiUrl);
       bindNewsButton(shadow, n8nProxyUrl);
+      bindMapMagnifierButton(shadow);
       bindClearPanelButton(shadow);
       appendWelcomeAiMessageIfNeeded(shadow);
       // bindForm shadow içindeyse zaten data-ncBoundChat guard’ı ile tekrar kurmaz.
@@ -1584,8 +2180,10 @@ export function initChatPanel(options: ChatPanelOptions = {}): HTMLElement {
   shadow.appendChild(panelWrap);
   container.appendChild(root);
   bindForm(shadow, n8nProxyUrl);
+  bindTabBar(shadow, n8nProxyUrl);
   bindWisartButton(shadow, dbApiUrl);
   bindNewsButton(shadow, n8nProxyUrl);
+  bindMapMagnifierButton(shadow);
   bindClearPanelButton(shadow);
   appendWelcomeAiMessageIfNeeded(shadow);
   return root;
