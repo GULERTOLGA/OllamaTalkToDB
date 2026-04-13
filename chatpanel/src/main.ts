@@ -44,6 +44,17 @@ type MapMagnifierCleanup = () => void;
 
 let mapMagnifierCleanup: MapMagnifierCleanup | null = null;
 
+/** Büyüteç açıkken ana harita stili/katmanları değişince mini haritayı güncellemek için. */
+let magnifierSyncStyleAndView: (() => void) | null = null;
+
+function notifyMagnifierMainStyleChanged(): void {
+  try {
+    magnifierSyncStyleAndView?.();
+  } catch {
+    /* */
+  }
+}
+
 let searchScanOverlayDepth = 0;
 let searchScanOverlayEl: HTMLElement | null = null;
 
@@ -830,6 +841,7 @@ function removeChatPanelGeoJsonFromMap(): void {
   } catch {
     /* harita dispose */
   }
+  notifyMagnifierMainStyleChanged();
 }
 
 function addGeoJsonToMap(geojson: GeoJsonFeatureCollection): void {
@@ -848,6 +860,7 @@ function addGeoJsonToMap(geojson: GeoJsonFeatureCollection): void {
     applyFaaliyetCategoryPaint(map, layerPrefix, geojson);
     startGeoJsonPulseAnimation(map, layerPrefix);
     fitMapToGeoJson(map, geojson);
+    notifyMagnifierMainStyleChanged();
     return;
   }
 
@@ -895,6 +908,7 @@ function addGeoJsonToMap(geojson: GeoJsonFeatureCollection): void {
   applyFaaliyetCategoryPaint(map, layerPrefix, geojson);
   startGeoJsonPulseAnimation(map, layerPrefix);
   fitMapToGeoJson(map, geojson);
+  notifyMagnifierMainStyleChanged();
 }
 
 function parseAssistantText(payload: N8nGeoJsonResponse | null, rawText: string): string {
@@ -1603,6 +1617,7 @@ function removeMapMagnifierLens(): void {
     /* */
   }
   mapMagnifierCleanup = null;
+  magnifierSyncStyleAndView = null;
   document.getElementById(NC_MAP_MAGNIFY_ROOT_ID)?.remove();
 }
 
@@ -1669,7 +1684,12 @@ function attachMapMagnifierLens(): boolean {
   root.appendChild(lens);
   container.appendChild(root);
 
-  let miniMap: { remove: () => void; jumpTo: (o: Record<string, unknown>) => void; resize: () => void };
+  let miniMap: {
+    remove: () => void;
+    jumpTo: (o: Record<string, unknown>) => void;
+    resize: () => void;
+    setStyle: (style: unknown, options?: { diff?: boolean }) => void;
+  };
   try {
     const center = mainMap.getCenter();
     miniMap = new maplibre.Map({
@@ -1722,6 +1742,38 @@ function attachMapMagnifierLens(): boolean {
     lastPoint = null;
   };
 
+  const syncMiniStyleFromMain = (): void => {
+    try {
+      const style = mainMap.getStyle() as Record<string, unknown> | null;
+      if (!style) return;
+      miniMap.setStyle(style, { diff: true });
+    } catch {
+      try {
+        miniMap.setStyle(mainMap.getStyle());
+      } catch (err) {
+        console.warn('[chatpanel] Büyüteç stil senkronu başarısız', err);
+      }
+    }
+    if (lastPoint) {
+      syncMiniAtPoint();
+    } else {
+      const c = mainMap.getCenter();
+      miniMap.jumpTo({
+        center: [c.lng, c.lat],
+        zoom: Math.min(mainMap.getZoom() + MAGNIFY_ZOOM_DELTA, 22),
+        bearing: mainMap.getBearing(),
+        pitch: mainMap.getPitch(),
+      });
+    }
+    try {
+      miniMap.resize();
+    } catch {
+      /* */
+    }
+  };
+
+  magnifierSyncStyleAndView = syncMiniStyleFromMain;
+
   mainMap.on('mousemove', onMouseMove);
   mainMap.on('move', onMainViewChange);
   mainMap.on('zoom', onMainViewChange);
@@ -1738,6 +1790,7 @@ function attachMapMagnifierLens(): boolean {
   });
 
   mapMagnifierCleanup = (): void => {
+    magnifierSyncStyleAndView = null;
     mainMap.off('mousemove', onMouseMove);
     mainMap.off('move', onMainViewChange);
     mainMap.off('zoom', onMainViewChange);
