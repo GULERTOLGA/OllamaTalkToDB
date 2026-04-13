@@ -633,12 +633,12 @@ function applyLegendCategoryHoverMarkers(map: any, geojson: GeoJsonFeatureCollec
   clearLegendCategoryHoverMarkers(map);
   const M = getMaplibre() as
     | {
-        Marker?: new (options?: { color?: string }) => {
-          setLngLat: (ll: [number, number]) => unknown;
-          addTo: (m: unknown) => unknown;
-          remove: () => void;
-        };
-      }
+      Marker?: new (options?: { color?: string }) => {
+        setLngLat: (ll: [number, number]) => unknown;
+        addTo: (m: unknown) => unknown;
+        remove: () => void;
+      };
+    }
     | undefined;
   if (!M?.Marker) return;
 
@@ -816,6 +816,33 @@ function ensureGeoJsonPointLabelLayer(map: any, sourceId: string, layerPrefix: s
 
 const NC_CHATPANEL_GEOJSON_SOURCE_ID = 'nc_chatpanel_geojson';
 const NC_CHATPANEL_GEOJSON_LAYER_PREFIX = 'nc_chatpanel_geojson_';
+
+function getChatPanelGeoJsonFeatureCount(): number {
+  const map = getRegisteredMap() as {
+    getSource?: (id: string) =>
+      | { serialize?: () => { data?: unknown }; _data?: unknown }
+      | undefined;
+  } | null;
+  if (!map?.getSource?.(NC_CHATPANEL_GEOJSON_SOURCE_ID)) return 0;
+  const src = map.getSource(NC_CHATPANEL_GEOJSON_SOURCE_ID) as {
+    serialize?: () => { data?: unknown };
+    _data?: unknown;
+  };
+  try {
+    const ser = typeof src.serialize === 'function' ? src.serialize() : null;
+    const d = ser?.data as GeoJsonFeatureCollection | undefined;
+    if (d?.type === 'FeatureCollection' && Array.isArray(d.features)) return d.features.length;
+  } catch {
+    /* */
+  }
+  try {
+    const d = src._data as GeoJsonFeatureCollection | undefined;
+    if (d?.type === 'FeatureCollection' && Array.isArray(d.features)) return d.features.length;
+  } catch {
+    /* */
+  }
+  return 0;
+}
 
 /** Chat panelinin haritaya eklediği GeoJSON kaynağı ve katmanlarını kaldırır. */
 function removeChatPanelGeoJsonFromMap(): void {
@@ -1378,6 +1405,15 @@ function injectStyles(target: ShadowRoot): void {
       min-width: 0;
       word-break: break-word;
     }
+    .nc_chatpanel_magnifier_scroll {
+      max-height: 200px;
+      overflow-y: auto;
+      overflow-x: hidden;
+      font-size: 0.8rem;
+      line-height: 1.4;
+      color: #212529;
+      padding-right: 6px;
+    }
     .nc_chatpanel_typing {
       display: inline-flex;
       align-items: center;
@@ -1807,11 +1843,59 @@ function attachMapMagnifierLens(): boolean {
   return true;
 }
 
-function syncMapMagnifierButtonUi(btn: HTMLButtonElement): void {
-  const on = typeof document !== 'undefined' && !!document.getElementById(NC_MAP_MAGNIFY_ROOT_ID);
+function syncMapMagnifierButtonUi(btn: HTMLButtonElement, scope: ParentNode): void {
+  const hasLens = typeof document !== 'undefined' && !!document.getElementById(NC_MAP_MAGNIFY_ROOT_ID);
+  const hasPanel = !!scope.querySelector('[data-nc-magnifier-panel="true"]');
+  const on = hasLens || hasPanel;
   btn.classList.toggle('btn-primary', on);
   btn.classList.toggle('btn-outline-primary', !on);
   btn.setAttribute('aria-pressed', on ? 'true' : 'false');
+}
+
+function removeMagnifierChatPanel(scope: ParentNode): void {
+  scope.querySelector('[data-nc-magnifier-panel="true"]')?.remove();
+}
+
+function showMagnifierChatPanel(scope: ParentNode, mapOk: boolean): void {
+  const messages = scope.querySelector<HTMLElement>('#nc_chatpanel_messages');
+  if (!messages) return;
+  removeMagnifierChatPanel(scope);
+  ensureBracketCategoryLinkDelegation(messages);
+
+  const n = getChatPanelGeoJsonFeatureCount();
+
+  const bubble = document.createElement('div');
+  bubble.className = 'nc_chatpanel_msg nc_chatpanel_msg_ai nc_chatpanel_msg_with_legend';
+  bubble.setAttribute('data-nc-magnifier-panel', 'true');
+
+  const intro = document.createElement('div');
+  intro.className = 'nc_chatpanel_legend_intro';
+  intro.textContent = 'Büyüteç'
+
+  const legendWrap = document.createElement('div');
+  legendWrap.className = 'nc_chatpanel_legend';
+
+  const heading = document.createElement('div');
+  heading.className = 'nc_chatpanel_legend_heading';
+  heading.textContent = '';
+
+  const scroll = document.createElement('div');
+  scroll.className = 'nc_chatpanel_magnifier_scroll';
+
+  const p = document.createElement('p');
+  p.className = 'nc_chatpanel_hint mb-0';
+  p.textContent = mapOk
+    ? 'Haritada fareyi hareket ettirdiğinizde merkezdeki yuvarlak lens, o noktayı yakınlaştırılmış gösterir; haritayı normal şekilde kaydırabilirsiniz. Büyüteci kapatmak için aynı düğmeye tekrar basın.'
+    : 'Harita veya maplibregl bulunamadığı için lens gösterilemedi. Sayfayı yenileyip tekrar deneyin.';
+
+  scroll.appendChild(p);
+  legendWrap.appendChild(heading);
+  legendWrap.appendChild(scroll);
+
+  bubble.appendChild(intro);
+  bubble.appendChild(legendWrap);
+  messages.appendChild(bubble);
+  scrollMessagesToEnd(messages);
 }
 
 function bindMapMagnifierButton(scope: ParentNode): void {
@@ -1820,19 +1904,24 @@ function bindMapMagnifierButton(scope: ParentNode): void {
   if (btn.dataset.ncBoundMapCircle === 'true') return;
   btn.dataset.ncBoundMapCircle = 'true';
 
-  syncMapMagnifierButtonUi(btn);
+  syncMapMagnifierButtonUi(btn, scope);
 
   btn.addEventListener('click', () => {
-    const had = !!document.getElementById(NC_MAP_MAGNIFY_ROOT_ID);
-    if (had) {
+    const hasLens = !!document.getElementById(NC_MAP_MAGNIFY_ROOT_ID);
+    const hasPanel = !!scope.querySelector('[data-nc-magnifier-panel="true"]');
+    const active = hasLens || hasPanel;
+
+    if (active) {
       removeMapMagnifierLens();
+      removeMagnifierChatPanel(scope);
     } else {
       const ok = attachMapMagnifierLens();
       if (!ok) {
         console.warn('[chatpanel] Harita veya maplibregl yok; büyüteç açılamadı.');
       }
+      showMagnifierChatPanel(scope, ok);
     }
-    syncMapMagnifierButtonUi(btn);
+    syncMapMagnifierButtonUi(btn, scope);
   });
 }
 
@@ -1918,7 +2007,7 @@ async function fetchAndApplyKentrehberiFeaturesByBbox(dbApiUrl: string, messages
 function resetChatPanelToInitialState(scope: ParentNode): void {
   removeMapMagnifierLens();
   const circleBtn = scope.querySelector<HTMLButtonElement>('#nc_chatpanel_map_circle_btn');
-  if (circleBtn) syncMapMagnifierButtonUi(circleBtn);
+  if (circleBtn) syncMapMagnifierButtonUi(circleBtn, scope);
 
   const messages = scope.querySelector<HTMLElement>('#nc_chatpanel_messages');
   const input = scope.querySelector<HTMLInputElement>('#nc_chatpanel_input');
