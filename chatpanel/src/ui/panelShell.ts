@@ -45,6 +45,52 @@ export function injectStyles(target: ShadowRoot): void {
     .nc_chatpanel_header {
       flex-shrink: 0;
       font-weight: 600;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+    }
+    .nc_chatpanel_header_title {
+      font-weight: 600;
+      letter-spacing: 0.01em;
+    }
+    .nc_chatpanel_audio_trackbar {
+      flex-shrink: 0;
+      height: 18px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 0 8px;
+      background: #e9ecef;
+      border-bottom: 1px solid #ced4da;
+    }
+    .nc_chatpanel_audio_trackbar_line {
+      flex: 1 1 auto;
+      height: 6px;
+      border-radius: 999px;
+      background: #adb5bd;
+      overflow: hidden;
+    }
+    .nc_chatpanel_audio_trackbar_fill {
+      display: block;
+      height: 100%;
+      width: 0%;
+      background: #0b5ed7;
+      transition: width 0.1s linear;
+    }
+    .nc_chatpanel_audio_trackbar_stop {
+      border: none;
+      background: transparent;
+      color: #495057;
+      font-size: 12px;
+      font-weight: 700;
+      line-height: 1;
+      padding: 0;
+      cursor: pointer;
+    }
+    .nc_chatpanel_audio_trackbar_stop:disabled {
+      opacity: 0.45;
+      cursor: default;
     }
     .nc_chatpanel_tabbar {
       flex-shrink: 0;
@@ -344,7 +390,33 @@ export function injectStyles(target: ShadowRoot): void {
 
 export function createPanelMarkup(): string {
   return `
-    <div class="nc_chatpanel_header bg-primary text-white px-3 py-2">NEco Keos AI</div>
+    <div class="nc_chatpanel_header bg-primary text-white px-3 py-2">
+      <span class="nc_chatpanel_header_title">neCO Keos AI</span>
+      <button
+        type="button"
+        class="btn btn-success btn-sm nc_chatpanel_audio_toggle_btn"
+        id="nc_chatpanel_audio_toggle_btn"
+        title="Sesli okuma açık"
+        aria-label="Sesli okuma aç kapa"
+        aria-pressed="true"
+      >
+        Seslendirme: Açık
+      </button>
+    </div>
+    <div class="nc_chatpanel_audio_trackbar" id="nc_chatpanel_audio_trackbar" hidden>
+      <span class="nc_chatpanel_audio_trackbar_line" aria-hidden="true">
+        <span class="nc_chatpanel_audio_trackbar_fill" id="nc_chatpanel_audio_trackbar_fill"></span>
+      </span>
+      <button
+        type="button"
+        class="nc_chatpanel_audio_trackbar_stop"
+        id="nc_chatpanel_audio_stop_btn"
+        title="Çalmayı durdur"
+        aria-label="Çalmayı durdur"
+      >
+        ■
+      </button>
+    </div>
     <div class="nc_chatpanel_tabbar" role="tablist" aria-label="Panel sekmeleri">
       <button
         type="button"

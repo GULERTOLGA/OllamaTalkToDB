@@ -1,4 +1,6 @@
 import { removeChatPanelGeoJsonFromMap } from './features/geoJsonMapLayers';
+import { bindAudioTrackBar } from './features/audioPlayback';
+import { bindAudioToggleButton } from './features/audioToggle';
 import { bindWisartButton } from './features/kentrehberiWisart';
 import {
   bindMapMagnifierButton,
@@ -187,6 +189,8 @@ export function initChatPanel(options: ChatPanelOptions = {}): HTMLElement {
     const shadow = root.shadowRoot;
     if (shadow) {
       bindTabBar(shadow, n8nProxyUrl);
+      bindAudioTrackBar(shadow);
+      bindAudioToggleButton(shadow);
       bindWisartButton(shadow, dbApiUrl);
       bindNewsButton(shadow, n8nProxyUrl);
       bindMapMagnifierButton(shadow, { ensureBracketCategoryLinkDelegation });
@@ -211,6 +215,8 @@ export function initChatPanel(options: ChatPanelOptions = {}): HTMLElement {
   container.appendChild(root);
   bindForm(shadow, n8nProxyUrl);
   bindTabBar(shadow, n8nProxyUrl);
+  bindAudioTrackBar(shadow);
+  bindAudioToggleButton(shadow);
   bindWisartButton(shadow, dbApiUrl);
   bindNewsButton(shadow, n8nProxyUrl);
   bindMapMagnifierButton(shadow, { ensureBracketCategoryLinkDelegation });

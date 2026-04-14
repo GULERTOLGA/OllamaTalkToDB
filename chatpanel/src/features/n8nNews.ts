@@ -1,4 +1,6 @@
 import { escapeHtml, isPlainObject } from '../shared/utils/textAndDom';
+import { isChatpanelAudioEnabled } from './audioToggle';
+import { playAudioBlob } from './audioPlayback';
 import {
   addGeoJsonToMap,
   hideNewsHoverPinWithPopup,
@@ -147,6 +149,7 @@ function normalizeNewsItems(data: unknown): NormalizedNewsItem[] {
 function bindHoverFeaturesToCards(
   cards: NodeListOf<HTMLElement>,
   items: NormalizedNewsItem[],
+  n8nProxyUrl: string,
 ): void {
   cards.forEach((card, index) => {
     const item = items[index];
@@ -173,11 +176,34 @@ function bindHoverFeaturesToCards(
         location: item.location,
         source: item.source,
       });
+      const speechText = (item.fullDescription || '').trim();
+      if (!speechText || !isChatpanelAudioEnabled()) return;
+      void playNewsAudioFromN8n(n8nProxyUrl, speechText).catch((err) => {
+        console.error('[chatpanel] news audio oynatma hatası', err);
+      });
     });
   });
 }
 
-function renderN8nNewsTabs(scope: ParentNode, data: unknown): void {
+function resolveN8nAudioProxyUrl(n8nProxyUrl: string): string {
+  return `${n8nProxyUrl.replace(/\/$/, '')}/audio`;
+}
+
+async function playNewsAudioFromN8n(n8nProxyUrl: string, text: string): Promise<void> {
+  const endpoint = resolveN8nAudioProxyUrl(n8nProxyUrl);
+  const fd = new FormData();
+  fd.append('chatInput', text);
+
+  const resp = await fetch(endpoint, { method: 'POST', body: fd });
+  if (!resp.ok) {
+    throw new Error(`n8n news audio isteği başarısız: ${resp.status}`);
+  }
+
+  const audioBlob = await resp.blob();
+  await playAudioBlob(audioBlob);
+}
+
+function renderN8nNewsTabs(scope: ParentNode, data: unknown, n8nProxyUrl: string): void {
   hideNewsHoverPinWithPopup();
   const haberlerEl = scope.querySelector<HTMLElement>('#nc_chatpanel_haberler_body');
   const sosyalEl = scope.querySelector<HTMLElement>('#nc_chatpanel_sosyal_body');
@@ -201,7 +227,7 @@ function renderN8nNewsTabs(scope: ParentNode, data: unknown): void {
     }
     chunks.push('</div>');
     sosyalEl.innerHTML = chunks.join('');
-    bindHoverFeaturesToCards(sosyalEl.querySelectorAll<HTMLElement>('.nc_chatpanel_tweet_card'), twitterItems);
+    bindHoverFeaturesToCards(sosyalEl.querySelectorAll<HTMLElement>('.nc_chatpanel_tweet_card'), twitterItems, n8nProxyUrl);
   } else {
     sosyalEl.innerHTML = emptyHint;
   }
@@ -220,7 +246,7 @@ function renderN8nNewsTabs(scope: ParentNode, data: unknown): void {
     }
     chunks.push('</div>');
     haberlerEl.innerHTML = chunks.join('');
-    bindHoverFeaturesToCards(haberlerEl.querySelectorAll<HTMLElement>('.nc_chatpanel_haber_card'), newsItems);
+    bindHoverFeaturesToCards(haberlerEl.querySelectorAll<HTMLElement>('.nc_chatpanel_haber_card'), newsItems, n8nProxyUrl);
   } else {
     haberlerEl.innerHTML = emptyHint;
   }
@@ -285,7 +311,7 @@ export async function fetchN8nNewsAndLogConsole(
       fromCache: true,
       cachedAt: new Date(cached.ts).toISOString(),
     });
-    renderN8nNewsTabs(scope, cached.data);
+    renderN8nNewsTabs(scope, cached.data, n8nProxyUrl);
     return;
   }
 
@@ -306,7 +332,7 @@ export async function fetchN8nNewsAndLogConsole(
     if (resp.ok) {
       writeN8nNewsCache({ endpoint, status: resp.status, data });
     }
-    renderN8nNewsTabs(scope, data);
+    renderN8nNewsTabs(scope, data, n8nProxyUrl);
   } catch (err) {
     console.error('[chatpanel] n8n news istek hatası', context, err);
     const errHtml = '<p class="nc_chatpanel_hint mb-0">Haberler yüklenirken hata oluştu.</p>';

@@ -1,4 +1,6 @@
 import { addGeoJsonToMap, type N8nGeoJsonResponse } from './geoJsonMapLayers';
+import { playAudioBlob } from './audioPlayback';
+import { isChatpanelAudioEnabled } from './audioToggle';
 import { hideSearchScanOverlay, showSearchScanOverlay } from './searchScanOverlay';
 import { escapeHtml, scrollMessagesToEnd } from '../shared/utils/textAndDom';
 
@@ -41,9 +43,8 @@ function resolveN8nAudioProxyUrl(n8nProxyUrl: string): string {
   return `${n8nProxyUrl.replace(/\/$/, '')}/audio`;
 }
 
-let currentTtsAudio: HTMLAudioElement | null = null;
-
 async function playN8nAudioForChatInput(n8nProxyUrl: string, chatInput: string): Promise<void> {
+  if (!isChatpanelAudioEnabled()) return;
   const endpoint = resolveN8nAudioProxyUrl(n8nProxyUrl);
   const fd = new FormData();
   fd.append('chatInput', chatInput);
@@ -54,41 +55,7 @@ async function playN8nAudioForChatInput(n8nProxyUrl: string, chatInput: string):
   }
 
   const audioBlob = await resp.blob();
-  if (!audioBlob.size) return;
-
-  const objectUrl = URL.createObjectURL(audioBlob);
-  const audio = new Audio(objectUrl);
-  audio.preload = 'auto';
-  const cleanup = (): void => {
-    URL.revokeObjectURL(objectUrl);
-    if (currentTtsAudio === audio) {
-      currentTtsAudio = null;
-    }
-  };
-
-  if (currentTtsAudio) {
-    currentTtsAudio.pause();
-  }
-  currentTtsAudio = audio;
-  audio.addEventListener('ended', cleanup, { once: true });
-  audio.addEventListener('error', cleanup, { once: true });
-  const tryPlay = async (): Promise<void> => {
-    await audio.play();
-  };
-  try {
-    await tryPlay();
-    return;
-  } catch (err) {
-    console.warn('[chatpanel] audio autoplay engellendi, sonraki etkileşimde tekrar denenecek', err);
-  }
-
-  const retryOnGesture = (): void => {
-    void tryPlay().catch((err) => {
-      console.error('[chatpanel] audio tekrar oynatma hatası', err);
-      cleanup();
-    });
-  };
-  window.addEventListener('pointerdown', retryOnGesture, { once: true, passive: true });
+  await playAudioBlob(audioBlob);
 }
 
 /**

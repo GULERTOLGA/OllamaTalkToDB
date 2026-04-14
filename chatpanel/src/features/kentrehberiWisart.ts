@@ -9,6 +9,8 @@ import {
   linkifyBracketCategoriesHtml,
   setAiMessageHtmlFromPlainText,
 } from './panelChatN8n';
+import { isChatpanelAudioEnabled } from './audioToggle';
+import { playAudioBlob } from './audioPlayback';
 import { showSearchScanOverlay, hideSearchScanOverlay } from './searchScanOverlay';
 import { getRegisteredMap } from '../services/map/registry';
 import { scrollMessagesToEnd } from '../shared/utils/textAndDom';
@@ -33,13 +35,13 @@ function getMapBBox4326FromRegistry(): [number, number, number, number] | null {
 }
 
 const NC_WISART_THEN_FEATURES_DELAY_MS = 100;
-let currentWisartAudio: HTMLAudioElement | null = null;
 
 function resolveAudioProxyUrl(dbApiUrl: string): string {
   return `${dbApiUrl.replace(/\/$/, '')}/n8n/audio`;
 }
 
 async function playKentrehberiResponseAudio(dbApiUrl: string, text: string): Promise<void> {
+  if (!isChatpanelAudioEnabled()) return;
   const chatInput = text.trim();
   if (!chatInput) return;
 
@@ -52,42 +54,7 @@ async function playKentrehberiResponseAudio(dbApiUrl: string, text: string): Pro
   }
 
   const audioBlob = await resp.blob();
-  if (!audioBlob.size) return;
-
-  const objectUrl = URL.createObjectURL(audioBlob);
-  const audio = new Audio(objectUrl);
-  audio.preload = 'auto';
-  const cleanup = (): void => {
-    URL.revokeObjectURL(objectUrl);
-    if (currentWisartAudio === audio) {
-      currentWisartAudio = null;
-    }
-  };
-
-  if (currentWisartAudio) {
-    currentWisartAudio.pause();
-  }
-  currentWisartAudio = audio;
-  audio.addEventListener('ended', cleanup, { once: true });
-  audio.addEventListener('error', cleanup, { once: true });
-
-  const tryPlay = async (): Promise<void> => {
-    await audio.play();
-  };
-  try {
-    await tryPlay();
-    return;
-  } catch (err) {
-    console.warn('[chatpanel] kentrehberi audio autoplay engellendi, sonraki etkileşimde tekrar denenecek', err);
-  }
-
-  const retryOnGesture = (): void => {
-    void tryPlay().catch((err) => {
-      console.error('[chatpanel] kentrehberi audio tekrar oynatma hatası', err);
-      cleanup();
-    });
-  };
-  window.addEventListener('pointerdown', retryOnGesture, { once: true, passive: true });
+  await playAudioBlob(audioBlob);
 }
 
 function pickKentrehberiAssistantText(data: unknown): string {

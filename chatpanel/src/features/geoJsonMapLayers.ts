@@ -170,6 +170,39 @@ function applyFaaliyetCategoryPaint(map: any, layerPrefix: string, geojson: GeoJ
   }
 
   const categories = collectDistinctFaaliyetAdi(geojson);
+
+  // Genel n8n/SQL sonuçlarında faaliyet_adi bulunmayabilir.
+  // Bu durumda gri fallback yerine belirgin tek renk kullan.
+  if (categories.length === 0) {
+    const fallbackFill = '#2563eb';
+    const fallbackOutline = '#1e3a8a';
+    const layerFill = `${layerPrefix}fill`;
+    const layerLine = `${layerPrefix}line`;
+    const layerPoint = `${layerPrefix}point`;
+    try {
+      if (map.getLayer?.(layerFill)) {
+        map.setPaintProperty(layerFill, 'fill-color', fallbackFill);
+        map.setPaintProperty(layerFill, 'fill-outline-color', fallbackOutline);
+        map.setPaintProperty(layerFill, 'fill-opacity', 0.45);
+      }
+      if (map.getLayer?.(layerLine)) {
+        map.setPaintProperty(layerLine, 'line-color', fallbackOutline);
+        map.setPaintProperty(layerLine, 'line-width', 4);
+        map.setPaintProperty(layerLine, 'line-opacity', 0.95);
+      }
+      if (map.getLayer?.(layerPoint)) {
+        map.setPaintProperty(layerPoint, 'circle-radius', NC_GEOJSON_CIRCLE_RADIUS + 1);
+        map.setPaintProperty(layerPoint, 'circle-stroke-width', NC_GEOJSON_CIRCLE_STROKE_WIDTH + 1);
+        map.setPaintProperty(layerPoint, 'circle-color', fallbackFill);
+        map.setPaintProperty(layerPoint, 'circle-stroke-color', '#ffffff');
+        map.setPaintProperty(layerPoint, 'circle-opacity', 0.98);
+      }
+    } catch {
+      // katman yok / harita dispose
+    }
+    return;
+  }
+
   const defaultColor = '#999999';
   const defaultOutline = darkenColorForOutline(defaultColor);
   const n = NC_FAALIYET_PALETTE.length;
