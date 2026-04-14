@@ -37,6 +37,60 @@ async function postChatToN8n(proxyUrl: string, chatInput: string): Promise<strin
   return parseAssistantText(maybe, raw);
 }
 
+function resolveN8nAudioProxyUrl(n8nProxyUrl: string): string {
+  return `${n8nProxyUrl.replace(/\/$/, '')}/audio`;
+}
+
+let currentTtsAudio: HTMLAudioElement | null = null;
+
+async function playN8nAudioForChatInput(n8nProxyUrl: string, chatInput: string): Promise<void> {
+  const endpoint = resolveN8nAudioProxyUrl(n8nProxyUrl);
+  const fd = new FormData();
+  fd.append('chatInput', chatInput);
+
+  const resp = await fetch(endpoint, { method: 'POST', body: fd });
+  if (!resp.ok) {
+    throw new Error(`n8n audio isteği başarısız: ${resp.status}`);
+  }
+
+  const audioBlob = await resp.blob();
+  if (!audioBlob.size) return;
+
+  const objectUrl = URL.createObjectURL(audioBlob);
+  const audio = new Audio(objectUrl);
+  audio.preload = 'auto';
+  const cleanup = (): void => {
+    URL.revokeObjectURL(objectUrl);
+    if (currentTtsAudio === audio) {
+      currentTtsAudio = null;
+    }
+  };
+
+  if (currentTtsAudio) {
+    currentTtsAudio.pause();
+  }
+  currentTtsAudio = audio;
+  audio.addEventListener('ended', cleanup, { once: true });
+  audio.addEventListener('error', cleanup, { once: true });
+  const tryPlay = async (): Promise<void> => {
+    await audio.play();
+  };
+  try {
+    await tryPlay();
+    return;
+  } catch (err) {
+    console.warn('[chatpanel] audio autoplay engellendi, sonraki etkileşimde tekrar denenecek', err);
+  }
+
+  const retryOnGesture = (): void => {
+    void tryPlay().catch((err) => {
+      console.error('[chatpanel] audio tekrar oynatma hatası', err);
+      cleanup();
+    });
+  };
+  window.addEventListener('pointerdown', retryOnGesture, { once: true, passive: true });
+}
+
 /**
  * Düz metinde [Kategori] ifadelerini güvenli HTML linkine çevirir (data-cat = parantez içi metin).
  */
@@ -125,6 +179,9 @@ export function bindForm(scope: ParentNode, n8nProxyUrl: string): void {
       .then((assistantText) => {
         setAiMessageHtmlFromPlainText(aiBubble, assistantText);
         scrollMessagesToEnd(messages);
+        void playN8nAudioForChatInput(n8nProxyUrl, text).catch((err) => {
+          console.error('[chatpanel] n8n audio oynatma hatası', err);
+        });
       })
       .catch((err) => {
         console.error('[chatpanel] n8n istek hatası', err);

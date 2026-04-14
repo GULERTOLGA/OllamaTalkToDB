@@ -33,6 +33,74 @@ function getMapBBox4326FromRegistry(): [number, number, number, number] | null {
 }
 
 const NC_WISART_THEN_FEATURES_DELAY_MS = 100;
+let currentWisartAudio: HTMLAudioElement | null = null;
+
+function resolveAudioProxyUrl(dbApiUrl: string): string {
+  return `${dbApiUrl.replace(/\/$/, '')}/n8n/audio`;
+}
+
+async function playKentrehberiResponseAudio(dbApiUrl: string, text: string): Promise<void> {
+  const chatInput = text.trim();
+  if (!chatInput) return;
+
+  const fd = new FormData();
+  fd.append('chatInput', chatInput);
+  const endpoint = resolveAudioProxyUrl(dbApiUrl);
+  const resp = await fetch(endpoint, { method: 'POST', body: fd });
+  if (!resp.ok) {
+    throw new Error(`kentrehberi audio isteği başarısız: ${resp.status}`);
+  }
+
+  const audioBlob = await resp.blob();
+  if (!audioBlob.size) return;
+
+  const objectUrl = URL.createObjectURL(audioBlob);
+  const audio = new Audio(objectUrl);
+  audio.preload = 'auto';
+  const cleanup = (): void => {
+    URL.revokeObjectURL(objectUrl);
+    if (currentWisartAudio === audio) {
+      currentWisartAudio = null;
+    }
+  };
+
+  if (currentWisartAudio) {
+    currentWisartAudio.pause();
+  }
+  currentWisartAudio = audio;
+  audio.addEventListener('ended', cleanup, { once: true });
+  audio.addEventListener('error', cleanup, { once: true });
+
+  const tryPlay = async (): Promise<void> => {
+    await audio.play();
+  };
+  try {
+    await tryPlay();
+    return;
+  } catch (err) {
+    console.warn('[chatpanel] kentrehberi audio autoplay engellendi, sonraki etkileşimde tekrar denenecek', err);
+  }
+
+  const retryOnGesture = (): void => {
+    void tryPlay().catch((err) => {
+      console.error('[chatpanel] kentrehberi audio tekrar oynatma hatası', err);
+      cleanup();
+    });
+  };
+  window.addEventListener('pointerdown', retryOnGesture, { once: true, passive: true });
+}
+
+function pickKentrehberiAssistantText(data: unknown): string {
+  if (typeof data === 'string') return data;
+  if (data && typeof data === 'object') {
+    const maybeMsg = (data as { message?: unknown }).message;
+    if (typeof maybeMsg === 'string' && maybeMsg.trim()) {
+      return maybeMsg.trim();
+    }
+    return JSON.stringify(data);
+  }
+  return String(data);
+}
 
 /** POST /db/kentrehberi_poi/features-by-bbox — haritaya GeoJSON + lejant mesajı. */
 async function fetchAndApplyKentrehberiFeaturesByBbox(dbApiUrl: string, messages: HTMLElement | null): Promise<void> {
@@ -164,18 +232,11 @@ export function bindWisartButton(scope: ParentNode, dbApiUrl: string): void {
       }
 
       console.log('[chatpanel] kentrehberi sonuç', { endpoint, status: resp.status, data });
-      if (typeof data === 'string') {
-        appendAiMessage(data);
-      } else if (data && typeof data === 'object') {
-        const maybeMsg = (data as { message?: unknown }).message;
-        if (typeof maybeMsg === 'string' && maybeMsg.trim()) {
-          appendAiMessage(maybeMsg.trim());
-        } else {
-          appendAiMessage(JSON.stringify(data));
-        }
-      } else {
-        appendAiMessage(String(data));
-      }
+      const assistantText = pickKentrehberiAssistantText(data);
+      appendAiMessage(assistantText);
+      void playKentrehberiResponseAudio(dbApiUrl, assistantText).catch((err) => {
+        console.error('[chatpanel] kentrehberi audio oynatma hatası', err);
+      });
     } catch (err) {
       console.error('[chatpanel] WISART hata', err);
       appendAiMessage('WISART isteğinde hata oluştu.');

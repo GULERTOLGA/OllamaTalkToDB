@@ -1,5 +1,10 @@
 import { escapeHtml, isPlainObject } from '../shared/utils/textAndDom';
-import { addGeoJsonToMap, type GeoJsonFeatureCollection } from './geoJsonMapLayers';
+import {
+  addGeoJsonToMap,
+  hideNewsHoverPinWithPopup,
+  showNewsHoverPinWithPopup,
+  type GeoJsonFeatureCollection,
+} from './geoJsonMapLayers';
 
 /** n8n /news yanıtı; endpoint eşleşirse ve TTL dolmamışsa ağ yerine kullanılır. */
 const NC_N8N_NEWS_CACHE_KEY = 'nc_chatpanel_n8n_news_v1';
@@ -21,6 +26,7 @@ function formatNewsDateLabel(iso: string): string {
 }
 
 function showNewsTabsLoading(scope: ParentNode): void {
+  hideNewsHoverPinWithPopup();
   const haberlerEl = scope.querySelector<HTMLElement>('#nc_chatpanel_haberler_body');
   const sosyalEl = scope.querySelector<HTMLElement>('#nc_chatpanel_sosyal_body');
   const msg = '<p class="nc_chatpanel_hint mb-0">Yükleniyor…</p>';
@@ -32,10 +38,19 @@ type NormalizedNewsItem = {
   title: string;
   date: string;
   location: string;
-  shortDescription: string;
+  previewDescription: string;
+  fullDescription: string;
   source: 'news' | 'twitter';
   featureForMap: GeoJsonFeatureCollection['features'][number] | null;
 };
+
+const NC_NEWS_PREVIEW_MAX_CHARS = 180;
+
+function truncateNewsPreview(text: string, maxChars = NC_NEWS_PREVIEW_MAX_CHARS): string {
+  const clean = text.replace(/\s+/g, ' ').trim();
+  if (clean.length <= maxChars) return clean;
+  return `${clean.slice(0, Math.max(0, maxChars - 3)).trimEnd()}...`;
+}
 
 function normalizeNewsSource(value: unknown): 'news' | 'twitter' | null {
   if (typeof value !== 'string') return null;
@@ -70,7 +85,8 @@ function normalizeNewsItems(data: unknown): NormalizedNewsItem[] {
       const title = typeof p.title === 'string' ? p.title : '';
       const date = typeof p.date === 'string' ? p.date : '';
       const location = typeof p.location === 'string' ? p.location : '';
-      const shortDescription = typeof p.short_description === 'string' ? p.short_description : '';
+      const fullDescription = typeof p.short_description === 'string' ? p.short_description : '';
+      const previewDescription = truncateNewsPreview(fullDescription || title);
       const geometry = feature.geometry;
       const featureForMap: GeoJsonFeatureCollection['features'][number] | null =
         isPlainObject(geometry) && typeof geometry.type === 'string'
@@ -80,7 +96,7 @@ function normalizeNewsItems(data: unknown): NormalizedNewsItem[] {
               properties: p,
             }
           : null;
-      out.push({ title, date, location, shortDescription, source, featureForMap });
+      out.push({ title, date, location, previewDescription, fullDescription, source, featureForMap });
     }
     return out;
   }
@@ -92,13 +108,14 @@ function normalizeNewsItems(data: unknown): NormalizedNewsItem[] {
   if (Array.isArray(twitterRaw)) {
     for (const item of twitterRaw) {
       if (!isPlainObject(item)) continue;
-      const text = typeof item.text === 'string' ? item.text : '';
+      const fullDescription = typeof item.text === 'string' ? item.text : '';
       const createdAt = typeof item.created_at === 'string' ? item.created_at : '';
       out.push({
         title: '',
         date: createdAt,
         location: '',
-        shortDescription: text,
+        previewDescription: truncateNewsPreview(fullDescription),
+        fullDescription,
         source: 'twitter',
         featureForMap: null,
       });
@@ -111,12 +128,13 @@ function normalizeNewsItems(data: unknown): NormalizedNewsItem[] {
       const baslik = typeof h.baslik === 'string' ? h.baslik : '';
       const tarih = typeof h.tarih === 'string' ? h.tarih : '';
       const yer = typeof h.yer === 'string' ? h.yer : '';
-      const aciklama = typeof h.kisa_aciklama === 'string' ? h.kisa_aciklama : '';
+      const fullDescription = typeof h.kisa_aciklama === 'string' ? h.kisa_aciklama : '';
       out.push({
         title: baslik,
         date: tarih,
         location: yer,
-        shortDescription: aciklama,
+        previewDescription: truncateNewsPreview(fullDescription || baslik),
+        fullDescription,
         source: 'news',
         featureForMap: null,
       });
@@ -141,10 +159,26 @@ function bindHoverFeaturesToCards(
         features: [feature],
       });
     });
+    card.addEventListener('click', () => {
+      const feature = item.featureForMap;
+      if (!feature) return;
+      addGeoJsonToMap({
+        type: 'FeatureCollection',
+        features: [feature],
+      });
+      showNewsHoverPinWithPopup(feature, {
+        title: item.title,
+        description: item.fullDescription || item.previewDescription,
+        date: item.date,
+        location: item.location,
+        source: item.source,
+      });
+    });
   });
 }
 
 function renderN8nNewsTabs(scope: ParentNode, data: unknown): void {
+  hideNewsHoverPinWithPopup();
   const haberlerEl = scope.querySelector<HTMLElement>('#nc_chatpanel_haberler_body');
   const sosyalEl = scope.querySelector<HTMLElement>('#nc_chatpanel_sosyal_body');
   if (!haberlerEl || !sosyalEl) return;
@@ -157,7 +191,7 @@ function renderN8nNewsTabs(scope: ParentNode, data: unknown): void {
   if (twitterItems.length > 0) {
     const chunks: string[] = ['<div class="nc_chatpanel_tweet_list">'];
     for (const item of twitterItems) {
-      const text = item.shortDescription || item.title;
+      const text = item.previewDescription || item.title;
       const meta = item.date ? formatNewsDateLabel(item.date) : '';
       const textHtml = escapeHtml(text).replace(/\n/g, '<br />');
       chunks.push(`<article class="nc_chatpanel_tweet_card">
@@ -181,7 +215,7 @@ function renderN8nNewsTabs(scope: ParentNode, data: unknown): void {
       chunks.push(`<article class="nc_chatpanel_haber_card">
         <h3 class="nc_chatpanel_haber_title">${escapeHtml(item.title)}</h3>
         ${metaLine}
-        <p class="nc_chatpanel_haber_desc">${escapeHtml(item.shortDescription)}</p>
+        <p class="nc_chatpanel_haber_desc">${escapeHtml(item.previewDescription)}</p>
       </article>`);
     }
     chunks.push('</div>');

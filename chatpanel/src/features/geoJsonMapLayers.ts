@@ -566,11 +566,180 @@ function ensureGeoJsonPointLabelLayer(map: any, sourceId: string, layerPrefix: s
 
 const NC_CHATPANEL_GEOJSON_SOURCE_ID = 'nc_chatpanel_geojson';
 const NC_CHATPANEL_GEOJSON_LAYER_PREFIX = 'nc_chatpanel_geojson_';
+const NC_NEWS_HOVER_MARKER_KEY = '__ncChatPanelNewsHoverMarker';
+const NC_NEWS_HOVER_STYLE_ID = 'nc_chatpanel_news_hover_styles';
+
+export type NewsHoverPopupModel = {
+  title: string;
+  description: string;
+  date?: string;
+  location?: string;
+  source?: string;
+};
+
+function ensureNewsHoverComponentStyles(): void {
+  if (typeof document === 'undefined') return;
+  if (document.getElementById(NC_NEWS_HOVER_STYLE_ID)) return;
+  const style = document.createElement('style');
+  style.id = NC_NEWS_HOVER_STYLE_ID;
+  style.textContent = `
+    .nc_news_hover_root {
+      pointer-events: none;
+      filter: drop-shadow(0 8px 16px rgba(0, 0, 0, 0.2));
+    }
+    .nc_news_hover_pin {
+      width: 14px;
+      height: 14px;
+      border-radius: 50%;
+      background: #f97316;
+      border: 2px solid #9a3412;
+      margin: 0 auto;
+      box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.9);
+    }
+    .nc_news_hover_balloon {
+      width: 280px;
+      margin-bottom: 8px;
+      background: #fff7ed;
+      border: 1px solid #fdba74;
+      border-radius: 10px;
+      padding: 9px 10px;
+      color: #7c2d12;
+      font-size: 12px;
+      line-height: 1.35;
+    }
+    .nc_news_hover_title {
+      font-weight: 700;
+      margin-bottom: 6px;
+    }
+    .nc_news_hover_meta {
+      font-size: 11px;
+      color: #9a3412;
+      margin-bottom: 6px;
+    }
+    .nc_news_hover_desc {
+      color: #431407;
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+  `;
+  document.head.appendChild(style);
+}
+
+function clearNewsHoverMarker(map: any): void {
+  const marker = map?.[NC_NEWS_HOVER_MARKER_KEY] as { remove?: () => void } | undefined;
+  try {
+    marker?.remove?.();
+  } catch {
+    /* */
+  }
+  if (map && typeof map === 'object') {
+    map[NC_NEWS_HOVER_MARKER_KEY] = null;
+  }
+}
+
+function centerLngLatForGeometry(geom: GeoJsonGeometry | null): [number, number] | null {
+  if (!geom) return null;
+  if (geom.type === 'Point') {
+    const c = geom.coordinates;
+    if (
+      Array.isArray(c) &&
+      c.length >= 2 &&
+      typeof c[0] === 'number' &&
+      Number.isFinite(c[0]) &&
+      typeof c[1] === 'number' &&
+      Number.isFinite(c[1])
+    ) {
+      return [c[0], c[1]];
+    }
+    return null;
+  }
+  if (geom.type === 'GeometryCollection' && Array.isArray(geom.geometries)) {
+    const pts: Array<[number, number]> = [];
+    for (const g of geom.geometries as GeoJsonGeometry[]) {
+      const center = centerLngLatForGeometry(g);
+      if (center) pts.push(center);
+    }
+    if (pts.length === 0) return null;
+    const sum = pts.reduce<[number, number]>((acc, [lng, lat]) => [acc[0] + lng, acc[1] + lat], [0, 0]);
+    return [sum[0] / pts.length, sum[1] / pts.length];
+  }
+  return averageLngLatFromCoordinates(geom.coordinates);
+}
+
+function createNewsHoverPopupComponent(model: NewsHoverPopupModel): HTMLElement {
+  const root = document.createElement('div');
+  root.className = 'nc_news_hover_root';
+
+  const balloon = document.createElement('div');
+  balloon.className = 'nc_news_hover_balloon';
+
+  const title = document.createElement('div');
+  title.className = 'nc_news_hover_title';
+  title.textContent = model.title.trim() || '(Başlık yok)';
+
+  const meta = document.createElement('div');
+  meta.className = 'nc_news_hover_meta';
+  const metaParts = [model.source, model.date, model.location]
+    .filter((v) => typeof v === 'string' && v.trim().length > 0)
+    .map((v) => String(v).trim());
+  meta.textContent = metaParts.join(' · ');
+
+  const desc = document.createElement('div');
+  desc.className = 'nc_news_hover_desc';
+  desc.textContent = model.description.trim() || '(Açıklama yok)';
+
+  balloon.appendChild(title);
+  if (meta.textContent) balloon.appendChild(meta);
+  balloon.appendChild(desc);
+  root.appendChild(balloon);
+
+  const pin = document.createElement('div');
+  pin.className = 'nc_news_hover_pin';
+  root.appendChild(pin);
+  return root;
+}
+
+export function showNewsHoverPinWithPopup(feature: GeoJsonFeature, model: NewsHoverPopupModel): void {
+  const map = getRegisteredMap() as any;
+  if (!map) return;
+  clearNewsHoverMarker(map);
+  const center = centerLngLatForGeometry(feature.geometry);
+  if (!center) return;
+  const M = getMaplibre() as
+    | {
+      Marker?: new (options?: { element?: HTMLElement; anchor?: string }) => {
+        setLngLat: (ll: [number, number]) => unknown;
+        addTo: (m: unknown) => unknown;
+        remove: () => void;
+      };
+    }
+    | undefined;
+  if (!M?.Marker) return;
+  ensureNewsHoverComponentStyles();
+  try {
+    const el = createNewsHoverPopupComponent(model);
+    const marker = new M.Marker({ element: el, anchor: 'bottom' });
+    marker.setLngLat(center);
+    marker.addTo(map);
+    map[NC_NEWS_HOVER_MARKER_KEY] = marker;
+  } catch {
+    /* */
+  }
+}
+
+export function hideNewsHoverPinWithPopup(): void {
+  const map = getRegisteredMap() as any;
+  if (!map) return;
+  clearNewsHoverMarker(map);
+}
 
 /** Chat panelinin haritaya eklediği GeoJSON kaynağı ve katmanlarını kaldırır. */
 export function removeChatPanelGeoJsonFromMap(): void {
   const map = getRegisteredMap() as any;
-  if (map) clearLegendCategoryHoverMarkers(map);
+  if (map) {
+    clearLegendCategoryHoverMarkers(map);
+    clearNewsHoverMarker(map);
+  }
   if (!map?.getLayer || !map.removeLayer) return;
 
   const state = map.__ncChatPanelAnim as { rafId?: number } | undefined;

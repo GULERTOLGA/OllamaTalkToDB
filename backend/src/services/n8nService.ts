@@ -9,6 +9,9 @@ const N8N_KENTREHBERI_WEBHOOK_URL =
 const N8N_NEWS_WEBHOOK_URL =
   process.env.N8N_NEWS_WEBHOOK_URL ??
   'https://eimarai.netcad.com:8787/webhook-test/910c0a35-cc6f-4430-b0fb-59e84a7e00c0';
+const N8N_AUDIO_WEBHOOK_URL =
+  process.env.N8N_AUDIO_WEBHOOK_URL ??
+  'https://eimarai.netcad.com:8787/webhook/33e57ac7-e9cf-4770-b24f-ccc0f59aaaa9';
 const N8N_FETCH_TIMEOUT_MS = Number(process.env.N8N_FETCH_TIMEOUT_MS ?? 15000);
 const N8N_INSECURE_TLS = String(process.env.N8N_INSECURE_TLS ?? 'true').toLowerCase() === 'true';
 
@@ -197,5 +200,55 @@ export async function proxyNewsToN8n(chatInput: string): Promise<{
     status: upstream.status,
     contentType: upstream.headers.get('content-type'),
     body: await upstream.text(),
+  };
+}
+
+export async function proxyAudioToN8n(chatInput: string): Promise<{
+  status: number;
+  contentType: string | null;
+  body: Buffer;
+}> {
+  if (typeof chatInput !== 'string' || !chatInput.trim()) {
+    throw new HttpError(400, '"chatInput" zorunlu ve string olmalı.');
+  }
+
+  const formData = new FormData();
+  formData.append('chatInput', chatInput);
+
+  const previousTlsSetting = process.env.NODE_TLS_REJECT_UNAUTHORIZED;
+  if (N8N_INSECURE_TLS) {
+    process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0';
+  }
+
+  let upstream: Response;
+  try {
+    upstream = await fetch(N8N_AUDIO_WEBHOOK_URL, {
+      method: 'POST',
+      body: formData,
+      signal: AbortSignal.timeout(N8N_FETCH_TIMEOUT_MS),
+    });
+  } catch (err) {
+    const e = err as Error & { cause?: unknown };
+    const causeMessage =
+      typeof e?.cause === 'object' && e.cause && 'message' in e.cause
+        ? String((e.cause as { message?: unknown }).message ?? '')
+        : '';
+    const baseMessage = e?.message || 'n8n ses isteği başarısız';
+    throw new HttpError(502, [baseMessage, causeMessage].filter(Boolean).join(' | '));
+  } finally {
+    if (N8N_INSECURE_TLS) {
+      if (previousTlsSetting === undefined) {
+        delete process.env.NODE_TLS_REJECT_UNAUTHORIZED;
+      } else {
+        process.env.NODE_TLS_REJECT_UNAUTHORIZED = previousTlsSetting;
+      }
+    }
+  }
+
+  const body = Buffer.from(await upstream.arrayBuffer());
+  return {
+    status: upstream.status,
+    contentType: upstream.headers.get('content-type'),
+    body,
   };
 }

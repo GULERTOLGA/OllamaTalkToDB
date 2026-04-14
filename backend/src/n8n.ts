@@ -2,7 +2,7 @@ import { Router } from 'express';
 import multer from 'multer';
 import { readFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
-import { proxyChatToN8n, proxyKentrehberiToN8n } from './services/n8nService.js';
+import { proxyAudioToN8n, proxyChatToN8n, proxyKentrehberiToN8n } from './services/n8nService.js';
 import { toHttpError } from './services/httpError.js';
 import { executeSqlToGeoJson } from './services/dbService.js';
 
@@ -84,6 +84,20 @@ router.post('/n8n/news', formParser.none(), async (req, res) => {
     return res.status(200).json(parsed);
   } catch (err) {
     const e = toHttpError(err, 500, 'test haber JSON okunamadı');
+    return res.status(e.statusCode).json({ ok: false, error: e.message });
+  }
+});
+
+router.post('/n8n/audio', formParser.none(), async (req, res) => {
+  const { chatInput } = req.body ?? {};
+
+  try {
+    const upstream = await proxyAudioToN8n(String(chatInput ?? ''));
+    res.status(upstream.status);
+    res.setHeader('Content-Type', upstream.contentType || 'audio/mpeg');
+    return res.send(upstream.body);
+  } catch (err) {
+    const e = toHttpError(err, 502, 'n8n ses isteği başarısız');
     return res.status(e.statusCode).json({ ok: false, error: e.message });
   }
 });
