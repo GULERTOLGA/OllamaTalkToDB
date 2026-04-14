@@ -127,7 +127,48 @@ function buildFaaliyetColorMatch(
   return expr;
 }
 
+function hasNewsSourceFeature(geojson: GeoJsonFeatureCollection): boolean {
+  for (const feature of geojson.features ?? []) {
+    const source = feature?.properties?.source;
+    if (typeof source !== 'string') continue;
+    const normalized = source.trim().toLowerCase();
+    if (normalized === 'news' || normalized === 'twitter') return true;
+  }
+  return false;
+}
+
 function applyFaaliyetCategoryPaint(map: any, layerPrefix: string, geojson: GeoJsonFeatureCollection): void {
+  // Haber/Twitter highlight: belirgin turuncu ve güçlü border.
+  if (hasNewsSourceFeature(geojson)) {
+    const newsFillColor = '#f97316';
+    const newsBorderColor = '#9a3412';
+    const layerFill = `${layerPrefix}fill`;
+    const layerLine = `${layerPrefix}line`;
+    const layerPoint = `${layerPrefix}point`;
+    try {
+      if (map.getLayer?.(layerFill)) {
+        map.setPaintProperty(layerFill, 'fill-color', newsFillColor);
+        map.setPaintProperty(layerFill, 'fill-outline-color', newsBorderColor);
+        map.setPaintProperty(layerFill, 'fill-opacity', 0.5);
+      }
+      if (map.getLayer?.(layerLine)) {
+        map.setPaintProperty(layerLine, 'line-color', newsBorderColor);
+        map.setPaintProperty(layerLine, 'line-width', 4);
+        map.setPaintProperty(layerLine, 'line-opacity', 0.95);
+      }
+      if (map.getLayer?.(layerPoint)) {
+        map.setPaintProperty(layerPoint, 'circle-radius', NC_GEOJSON_CIRCLE_RADIUS + 1);
+        map.setPaintProperty(layerPoint, 'circle-stroke-width', NC_GEOJSON_CIRCLE_STROKE_WIDTH + 1);
+        map.setPaintProperty(layerPoint, 'circle-color', newsFillColor);
+        map.setPaintProperty(layerPoint, 'circle-stroke-color', newsBorderColor);
+        map.setPaintProperty(layerPoint, 'circle-opacity', 0.98);
+      }
+    } catch {
+      // katman yok / harita dispose
+    }
+    return;
+  }
+
   const categories = collectDistinctFaaliyetAdi(geojson);
   const defaultColor = '#999999';
   const defaultOutline = darkenColorForOutline(defaultColor);
@@ -451,46 +492,6 @@ function fitMapToGeoJson(map: any, geojson: GeoJsonFeatureCollection): void {
   });
 }
 
-function startGeoJsonPulseAnimation(map: any, layerPrefix: string): void {
-  const state = (map.__ncChatPanelAnim as { rafId?: number } | undefined) ?? {};
-  if (typeof state.rafId === 'number') {
-    cancelAnimationFrame(state.rafId);
-  }
-
-  const layerFill = `${layerPrefix}fill`;
-  const layerLine = `${layerPrefix}line`;
-  const layerPoint = `${layerPrefix}point`;
-  const t0 = performance.now();
-
-  const tick = () => {
-    const phase = ((performance.now() - t0) / 1000) * Math.PI * 2 * 0.55;
-    const wave = 0.5 + 0.5 * Math.sin(phase); // 0..1
-
-    const fillOpacity = 0.15 + wave * 0.2; // 0.15..0.35
-    const lineOpacity = 0.45 + wave * 0.45; // 0.45..0.90
-    const pointOpacity = 0.5 + wave * 0.5; // 0.5..1
-
-    try {
-      if (map.getLayer?.(layerFill)) {
-        map.setPaintProperty(layerFill, 'fill-opacity', fillOpacity);
-      }
-      if (map.getLayer?.(layerLine)) {
-        map.setPaintProperty(layerLine, 'line-opacity', lineOpacity);
-      }
-      if (map.getLayer?.(layerPoint)) {
-        map.setPaintProperty(layerPoint, 'circle-opacity', pointOpacity);
-      }
-      state.rafId = requestAnimationFrame(tick);
-      map.__ncChatPanelAnim = state;
-    } catch {
-      // Harita dispose edilmiş olabilir; döngüyü sessizce sonlandır.
-    }
-  };
-
-  state.rafId = requestAnimationFrame(tick);
-  map.__ncChatPanelAnim = state;
-}
-
 /** GeoJSON nokta katmanı: önceki 6px / 2px değerlerinin 1.5 katı */
 const NC_GEOJSON_CIRCLE_RADIUS = 9;
 const NC_GEOJSON_CIRCLE_STROKE_WIDTH = 3;
@@ -607,7 +608,6 @@ export function addGeoJsonToMap(geojson: GeoJsonFeatureCollection): void {
     existing.setData(geojson);
     ensureGeoJsonPointLabelLayer(map, sourceId, layerPrefix);
     applyFaaliyetCategoryPaint(map, layerPrefix, geojson);
-    startGeoJsonPulseAnimation(map, layerPrefix);
     fitMapToGeoJson(map, geojson);
     notifyMagnifierMainStyleChanged();
     return;
@@ -655,7 +655,6 @@ export function addGeoJsonToMap(geojson: GeoJsonFeatureCollection): void {
   ensureGeoJsonPointLabelLayer(map, sourceId, layerPrefix);
 
   applyFaaliyetCategoryPaint(map, layerPrefix, geojson);
-  startGeoJsonPulseAnimation(map, layerPrefix);
   fitMapToGeoJson(map, geojson);
   notifyMagnifierMainStyleChanged();
 }

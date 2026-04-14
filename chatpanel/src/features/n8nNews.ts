@@ -1,4 +1,5 @@
 import { escapeHtml, isPlainObject } from '../shared/utils/textAndDom';
+import { addGeoJsonToMap, type GeoJsonFeatureCollection } from './geoJsonMapLayers';
 
 /** n8n /news yanıtı; endpoint eşleşirse ve TTL dolmamışsa ağ yerine kullanılır. */
 const NC_N8N_NEWS_CACHE_KEY = 'nc_chatpanel_n8n_news_v1';
@@ -27,30 +28,137 @@ function showNewsTabsLoading(scope: ParentNode): void {
   if (sosyalEl) sosyalEl.innerHTML = msg;
 }
 
-/** n8n /news JSON: `twitter` → sosyal sekmesi, `news.haberler` → haberler sekmesi */
+type NormalizedNewsItem = {
+  title: string;
+  date: string;
+  location: string;
+  shortDescription: string;
+  source: 'news' | 'twitter';
+  featureForMap: GeoJsonFeatureCollection['features'][number] | null;
+};
+
+function normalizeNewsSource(value: unknown): 'news' | 'twitter' | null {
+  if (typeof value !== 'string') return null;
+  const s = value.trim().toLowerCase();
+  if (s === 'news' || s === 'twitter') return s;
+  return null;
+}
+
+function extractGeoJsonFeaturesPayload(data: unknown): unknown[] | null {
+  if (!isPlainObject(data)) return null;
+  if (Array.isArray(data.features)) return data.features;
+  if (isPlainObject(data.geojson) && Array.isArray(data.geojson.features)) {
+    return data.geojson.features;
+  }
+  return null;
+}
+
+/**
+ * Yeni format: GeoJSON FeatureCollection ve `properties.source` (`news` | `twitter`).
+ * Geriye dönük uyumluluk: eski `twitter[]` + `news.haberler[]`.
+ */
+function normalizeNewsItems(data: unknown): NormalizedNewsItem[] {
+  const out: NormalizedNewsItem[] = [];
+
+  const features = extractGeoJsonFeaturesPayload(data);
+  if (Array.isArray(features)) {
+    for (const feature of features) {
+      if (!isPlainObject(feature) || !isPlainObject(feature.properties)) continue;
+      const p = feature.properties;
+      const source = normalizeNewsSource(p.source);
+      if (!source) continue;
+      const title = typeof p.title === 'string' ? p.title : '';
+      const date = typeof p.date === 'string' ? p.date : '';
+      const location = typeof p.location === 'string' ? p.location : '';
+      const shortDescription = typeof p.short_description === 'string' ? p.short_description : '';
+      const geometry = feature.geometry;
+      const featureForMap: GeoJsonFeatureCollection['features'][number] | null =
+        isPlainObject(geometry) && typeof geometry.type === 'string'
+          ? {
+              type: 'Feature',
+              geometry: geometry as GeoJsonFeatureCollection['features'][number]['geometry'],
+              properties: p,
+            }
+          : null;
+      out.push({ title, date, location, shortDescription, source, featureForMap });
+    }
+    return out;
+  }
+
+  if (!isPlainObject(data)) return out;
+  const twitterRaw = data.twitter;
+  const newsRaw = data.news;
+
+  if (Array.isArray(twitterRaw)) {
+    for (const item of twitterRaw) {
+      if (!isPlainObject(item)) continue;
+      const text = typeof item.text === 'string' ? item.text : '';
+      const createdAt = typeof item.created_at === 'string' ? item.created_at : '';
+      out.push({
+        title: '',
+        date: createdAt,
+        location: '',
+        shortDescription: text,
+        source: 'twitter',
+        featureForMap: null,
+      });
+    }
+  }
+
+  if (isPlainObject(newsRaw) && Array.isArray(newsRaw.haberler)) {
+    for (const h of newsRaw.haberler) {
+      if (!isPlainObject(h)) continue;
+      const baslik = typeof h.baslik === 'string' ? h.baslik : '';
+      const tarih = typeof h.tarih === 'string' ? h.tarih : '';
+      const yer = typeof h.yer === 'string' ? h.yer : '';
+      const aciklama = typeof h.kisa_aciklama === 'string' ? h.kisa_aciklama : '';
+      out.push({
+        title: baslik,
+        date: tarih,
+        location: yer,
+        shortDescription: aciklama,
+        source: 'news',
+        featureForMap: null,
+      });
+    }
+  }
+
+  return out;
+}
+
+function bindHoverFeaturesToCards(
+  cards: NodeListOf<HTMLElement>,
+  items: NormalizedNewsItem[],
+): void {
+  cards.forEach((card, index) => {
+    const item = items[index];
+    if (!item?.featureForMap) return;
+    card.addEventListener('mouseenter', () => {
+      const feature = item.featureForMap;
+      if (!feature) return;
+      addGeoJsonToMap({
+        type: 'FeatureCollection',
+        features: [feature],
+      });
+    });
+  });
+}
+
 function renderN8nNewsTabs(scope: ParentNode, data: unknown): void {
   const haberlerEl = scope.querySelector<HTMLElement>('#nc_chatpanel_haberler_body');
   const sosyalEl = scope.querySelector<HTMLElement>('#nc_chatpanel_sosyal_body');
   if (!haberlerEl || !sosyalEl) return;
 
   const emptyHint = '<p class="nc_chatpanel_hint mb-0">Gösterilecek içerik yok.</p>';
+  const items = normalizeNewsItems(data);
+  const twitterItems = items.filter((item) => item.source === 'twitter');
+  const newsItems = items.filter((item) => item.source === 'news');
 
-  if (!isPlainObject(data)) {
-    haberlerEl.innerHTML = emptyHint;
-    sosyalEl.innerHTML = emptyHint;
-    return;
-  }
-
-  const twitterRaw = data.twitter;
-  const newsRaw = data.news;
-
-  if (Array.isArray(twitterRaw) && twitterRaw.length > 0) {
+  if (twitterItems.length > 0) {
     const chunks: string[] = ['<div class="nc_chatpanel_tweet_list">'];
-    for (const item of twitterRaw) {
-      if (!isPlainObject(item)) continue;
-      const text = typeof item.text === 'string' ? item.text : '';
-      const createdAt = typeof item.created_at === 'string' ? item.created_at : '';
-      const meta = createdAt ? formatNewsDateLabel(createdAt) : '';
+    for (const item of twitterItems) {
+      const text = item.shortDescription || item.title;
+      const meta = item.date ? formatNewsDateLabel(item.date) : '';
       const textHtml = escapeHtml(text).replace(/\n/g, '<br />');
       chunks.push(`<article class="nc_chatpanel_tweet_card">
         <div class="nc_chatpanel_tweet_meta">${escapeHtml(meta)}</div>
@@ -59,34 +167,26 @@ function renderN8nNewsTabs(scope: ParentNode, data: unknown): void {
     }
     chunks.push('</div>');
     sosyalEl.innerHTML = chunks.join('');
+    bindHoverFeaturesToCards(sosyalEl.querySelectorAll<HTMLElement>('.nc_chatpanel_tweet_card'), twitterItems);
   } else {
     sosyalEl.innerHTML = emptyHint;
   }
 
-  let haberlerList: unknown[] = [];
-  if (isPlainObject(newsRaw) && Array.isArray(newsRaw.haberler)) {
-    haberlerList = newsRaw.haberler;
-  }
-
-  if (haberlerList.length > 0) {
+  if (newsItems.length > 0) {
     const chunks: string[] = ['<div class="nc_chatpanel_haber_list">'];
-    for (const h of haberlerList) {
-      if (!isPlainObject(h)) continue;
-      const baslik = typeof h.baslik === 'string' ? h.baslik : '';
-      const tarih = typeof h.tarih === 'string' ? h.tarih : '';
-      const yer = typeof h.yer === 'string' ? h.yer : '';
-      const aciklama = typeof h.kisa_aciklama === 'string' ? h.kisa_aciklama : '';
-      const metaParts = [tarih, yer].filter(Boolean);
+    for (const item of newsItems) {
+      const metaParts = [item.date, item.location].filter(Boolean);
       const metaLine =
         metaParts.length > 0 ? `<div class="nc_chatpanel_haber_meta">${escapeHtml(metaParts.join(' · '))}</div>` : '';
       chunks.push(`<article class="nc_chatpanel_haber_card">
-        <h3 class="nc_chatpanel_haber_title">${escapeHtml(baslik)}</h3>
+        <h3 class="nc_chatpanel_haber_title">${escapeHtml(item.title)}</h3>
         ${metaLine}
-        <p class="nc_chatpanel_haber_desc">${escapeHtml(aciklama)}</p>
+        <p class="nc_chatpanel_haber_desc">${escapeHtml(item.shortDescription)}</p>
       </article>`);
     }
     chunks.push('</div>');
     haberlerEl.innerHTML = chunks.join('');
+    bindHoverFeaturesToCards(haberlerEl.querySelectorAll<HTMLElement>('.nc_chatpanel_haber_card'), newsItems);
   } else {
     haberlerEl.innerHTML = emptyHint;
   }

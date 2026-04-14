@@ -1,6 +1,8 @@
 import { Router } from 'express';
 import multer from 'multer';
-import { proxyChatToN8n, proxyKentrehberiToN8n, proxyNewsToN8n } from './services/n8nService.js';
+import { readFile } from 'node:fs/promises';
+import { resolve } from 'node:path';
+import { proxyChatToN8n, proxyKentrehberiToN8n } from './services/n8nService.js';
 import { toHttpError } from './services/httpError.js';
 import { executeSqlToGeoJson } from './services/dbService.js';
 
@@ -51,17 +53,37 @@ router.post('/n8n/kentrehberi', async (req, res) => {
 });
 
 router.post('/n8n/news', formParser.none(), async (req, res) => {
-  const { chatInput } = req.body ?? {};
-
   try {
-    const upstream = await proxyNewsToN8n(String(chatInput ?? ''));
-    res.status(upstream.status);
-    if (upstream.contentType) {
-      res.setHeader('Content-Type', upstream.contentType);
+    const candidates = [
+      resolve(process.cwd(), 'mahalle_haber.json'),
+      resolve(process.cwd(), '../mahalle_haber.json'),
+      resolve(process.cwd(), '../../mahalle_haber.json'),
+    ];
+    let raw: string | null = null;
+
+    for (const p of candidates) {
+      try {
+        raw = await readFile(p, 'utf8');
+        break;
+      } catch {
+        // sonraki olası yolu dene
+      }
     }
-    return res.send(upstream.body);
+
+    if (!raw) {
+      return res.status(500).json({ ok: false, error: 'mahalle_haber.json bulunamadı.' });
+    }
+
+    let parsed: unknown;
+    try {
+      parsed = JSON.parse(raw);
+    } catch {
+      return res.status(500).json({ ok: false, error: 'mahalle_haber.json geçerli JSON değil.' });
+    }
+
+    return res.status(200).json(parsed);
   } catch (err) {
-    const e = toHttpError(err, 502, 'n8n haber isteği başarısız');
+    const e = toHttpError(err, 500, 'test haber JSON okunamadı');
     return res.status(e.statusCode).json({ ok: false, error: e.message });
   }
 });

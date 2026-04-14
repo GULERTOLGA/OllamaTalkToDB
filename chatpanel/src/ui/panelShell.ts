@@ -112,6 +112,13 @@ export function injectStyles(target: ShadowRoot): void {
       border-radius: 10px;
       padding: 10px 12px;
       box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+      cursor: pointer;
+      transition: background-color 0.12s ease, border-color 0.12s ease, box-shadow 0.12s ease;
+    }
+    .nc_chatpanel_haber_card:hover {
+      background: #fff4e6;
+      border-color: #fdba74;
+      box-shadow: 0 2px 8px rgba(249, 115, 22, 0.22);
     }
     .nc_chatpanel_haber_title {
       font-weight: 600;
@@ -142,6 +149,13 @@ export function injectStyles(target: ShadowRoot): void {
       border: 1px solid #e9ecef;
       border-radius: 10px;
       padding: 10px 12px;
+      cursor: pointer;
+      transition: background-color 0.12s ease, border-color 0.12s ease, box-shadow 0.12s ease;
+    }
+    .nc_chatpanel_tweet_card:hover {
+      background: #fff4e6;
+      border-color: #fdba74;
+      box-shadow: 0 2px 8px rgba(249, 115, 22, 0.22);
     }
     .nc_chatpanel_tweet_meta {
       font-size: 0.72rem;
