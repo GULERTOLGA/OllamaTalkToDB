@@ -41,6 +41,7 @@ type NormalizedNewsItem = {
   date: string;
   location: string;
   previewDescription: string;
+  isPreviewTruncated: boolean;
   fullDescription: string;
   source: 'news' | 'twitter';
   featureForMap: GeoJsonFeatureCollection['features'][number] | null;
@@ -52,6 +53,10 @@ function truncateNewsPreview(text: string, maxChars = NC_NEWS_PREVIEW_MAX_CHARS)
   const clean = text.replace(/\s+/g, ' ').trim();
   if (clean.length <= maxChars) return clean;
   return `${clean.slice(0, Math.max(0, maxChars - 3)).trimEnd()}...`;
+}
+
+function isTextTruncatedForPreview(text: string, maxChars = NC_NEWS_PREVIEW_MAX_CHARS): boolean {
+  return text.replace(/\s+/g, ' ').trim().length > maxChars;
 }
 
 function normalizeNewsSource(value: unknown): 'news' | 'twitter' | null {
@@ -89,6 +94,7 @@ function normalizeNewsItems(data: unknown): NormalizedNewsItem[] {
       const location = typeof p.location === 'string' ? p.location : '';
       const fullDescription = typeof p.short_description === 'string' ? p.short_description : '';
       const previewDescription = truncateNewsPreview(fullDescription || title);
+      const isPreviewTruncated = isTextTruncatedForPreview(fullDescription || title);
       const geometry = feature.geometry;
       const featureForMap: GeoJsonFeatureCollection['features'][number] | null =
         isPlainObject(geometry) && typeof geometry.type === 'string'
@@ -98,7 +104,16 @@ function normalizeNewsItems(data: unknown): NormalizedNewsItem[] {
               properties: p,
             }
           : null;
-      out.push({ title, date, location, previewDescription, fullDescription, source, featureForMap });
+      out.push({
+        title,
+        date,
+        location,
+        previewDescription,
+        isPreviewTruncated,
+        fullDescription,
+        source,
+        featureForMap,
+      });
     }
     return out;
   }
@@ -112,11 +127,13 @@ function normalizeNewsItems(data: unknown): NormalizedNewsItem[] {
       if (!isPlainObject(item)) continue;
       const fullDescription = typeof item.text === 'string' ? item.text : '';
       const createdAt = typeof item.created_at === 'string' ? item.created_at : '';
+      const isPreviewTruncated = isTextTruncatedForPreview(fullDescription);
       out.push({
         title: '',
         date: createdAt,
         location: '',
         previewDescription: truncateNewsPreview(fullDescription),
+        isPreviewTruncated,
         fullDescription,
         source: 'twitter',
         featureForMap: null,
@@ -131,11 +148,13 @@ function normalizeNewsItems(data: unknown): NormalizedNewsItem[] {
       const tarih = typeof h.tarih === 'string' ? h.tarih : '';
       const yer = typeof h.yer === 'string' ? h.yer : '';
       const fullDescription = typeof h.kisa_aciklama === 'string' ? h.kisa_aciklama : '';
+      const isPreviewTruncated = isTextTruncatedForPreview(fullDescription || baslik);
       out.push({
         title: baslik,
         date: tarih,
         location: yer,
         previewDescription: truncateNewsPreview(fullDescription || baslik),
+        isPreviewTruncated,
         fullDescription,
         source: 'news',
         featureForMap: null,
@@ -154,15 +173,8 @@ function bindHoverFeaturesToCards(
   cards.forEach((card, index) => {
     const item = items[index];
     if (!item?.featureForMap) return;
-    card.addEventListener('mouseenter', () => {
-      const feature = item.featureForMap;
-      if (!feature) return;
-      addGeoJsonToMap({
-        type: 'FeatureCollection',
-        features: [feature],
-      });
-    });
-    card.addEventListener('click', () => {
+
+    const activateOnMap = (): void => {
       const feature = item.featureForMap;
       if (!feature) return;
       addGeoJsonToMap({
@@ -181,7 +193,19 @@ function bindHoverFeaturesToCards(
       void playNewsAudioFromN8n(n8nProxyUrl, speechText).catch((err) => {
         console.error('[chatpanel] news audio oynatma hatası', err);
       });
+    };
+
+    card.addEventListener('click', () => {
+      activateOnMap();
     });
+    const moreLink = card.querySelector<HTMLAnchorElement>('.nc_chatpanel_news_more_link');
+    if (moreLink) {
+      moreLink.addEventListener('click', (ev) => {
+        ev.preventDefault();
+        ev.stopPropagation();
+        activateOnMap();
+      });
+    }
   });
 }
 
@@ -238,10 +262,13 @@ function renderN8nNewsTabs(scope: ParentNode, data: unknown, n8nProxyUrl: string
       const metaParts = [item.date, item.location].filter(Boolean);
       const metaLine =
         metaParts.length > 0 ? `<div class="nc_chatpanel_haber_meta">${escapeHtml(metaParts.join(' · '))}</div>` : '';
+      const moreLinkHtml = item.isPreviewTruncated
+        ? ` <a href="#" class="nc_chatpanel_news_more_link">daha fazla</a>`
+        : '';
       chunks.push(`<article class="nc_chatpanel_haber_card">
         <h3 class="nc_chatpanel_haber_title">${escapeHtml(item.title)}</h3>
         ${metaLine}
-        <p class="nc_chatpanel_haber_desc">${escapeHtml(item.previewDescription)}</p>
+        <p class="nc_chatpanel_haber_desc">${escapeHtml(item.previewDescription)}${moreLinkHtml}</p>
       </article>`);
     }
     chunks.push('</div>');

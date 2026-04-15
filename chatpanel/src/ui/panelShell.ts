@@ -237,6 +237,34 @@ export function injectStyles(target: ShadowRoot): void {
       border-top: 1px solid #dee2e6;
       background: #fff;
     }
+    .nc_chatpanel_input {
+      min-height: 68px;
+      max-height: 68px;
+      height: 68px;
+      resize: none;
+      line-height: 1.35;
+    }
+    .nc_chatpanel_input_footer {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      margin-top: 8px;
+    }
+    .nc_chatpanel_input_hint {
+      flex: 1 1 auto;
+      min-width: 0;
+      margin: 0;
+      font-size: 0.72rem;
+      line-height: 1.35;
+      color: #6c757d;
+    }
+    .nc_chatpanel_input_actions {
+      flex: 0 0 auto;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
     .nc_chatpanel_toolbox {
       flex-shrink: 0;
       border-bottom: 1px solid #dee2e6;
@@ -277,6 +305,65 @@ export function injectStyles(target: ShadowRoot): void {
     }
     .nc_chatpanel_msg_ai .nc_chatpanel_msg_catlink:hover {
       color: #0a58ca;
+    }
+    .nc_chatpanel_msg_ai .nc_chatpanel_msg_analysis_link {
+      color: #0d6efd;
+      font-weight: 600;
+      text-decoration: underline;
+      cursor: pointer;
+    }
+    .nc_chatpanel_msg_ai .nc_chatpanel_msg_analysis_link:hover {
+      color: #0a58ca;
+    }
+    .nc_chatpanel_task_list {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .nc_chatpanel_task_list_title {
+      font-size: 0.78rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.03em;
+      color: #495057;
+    }
+    .nc_chatpanel_task_items {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+    .nc_chatpanel_task_item {
+      display: flex;
+      align-items: flex-start;
+      gap: 8px;
+      border: 1px solid #e9ecef;
+      border-radius: 8px;
+      padding: 6px 8px;
+      background: #f8f9fa;
+      cursor: pointer;
+    }
+    .nc_chatpanel_task_item_checkbox {
+      margin-top: 2px;
+      cursor: pointer;
+    }
+    .nc_chatpanel_task_item_content {
+      display: flex;
+      flex-direction: column;
+      min-width: 0;
+      gap: 2px;
+    }
+    .nc_chatpanel_task_item_title {
+      font-size: 0.82rem;
+      font-weight: 600;
+      color: #212529;
+      line-height: 1.35;
+    }
+    .nc_chatpanel_task_item_meta {
+      font-size: 0.75rem;
+      color: #6c757d;
+      line-height: 1.35;
+      white-space: pre-wrap;
+      word-break: break-word;
     }
     .nc_chatpanel_msg_with_legend {
       white-space: normal;
@@ -379,6 +466,11 @@ export function injectStyles(target: ShadowRoot): void {
     }
     .nc_chatpanel_typing_dot:nth-child(3) {
       animation-delay: 0.3s;
+    }
+    .nc_chatpanel_mic_btn_recording {
+      background: #dc3545 !important;
+      border-color: #dc3545 !important;
+      color: #fff !important;
     }
     @keyframes nc_chatpanel_dot_bounce {
       0%, 80%, 100% { transform: scale(0.7); opacity: 0.45; }
@@ -514,9 +606,25 @@ export function createPanelMarkup(): string {
         </div>
         <div class="nc_chatpanel_messages" id="nc_chatpanel_messages"></div>
         <form class="nc_chatpanel_form p-2" id="nc_chatpanel_form" autocomplete="off">
-          <div class="input-group input-group-sm">
-            <input class="form-control" id="nc_chatpanel_input" type="text" placeholder="Mesaj yazın…" />
-            <button class="btn btn-primary" type="submit">Gönder</button>
+          <textarea class="form-control form-control-sm nc_chatpanel_input" id="nc_chatpanel_input" placeholder="Mesaj yazın…"></textarea>
+          <div class="nc_chatpanel_input_footer">
+            <p class="nc_chatpanel_input_hint">Yalnızca mekansal sorgular...</p>
+            <div class="nc_chatpanel_input_actions">
+              <button
+                class="btn btn-outline-secondary btn-sm"
+                type="button"
+                id="nc_chatpanel_mic_btn"
+                title="Sesli komut kaydı başlat"
+                aria-label="Sesli komut kaydı başlat"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                  <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/>
+                  <path d="M19 10v2a7 7 0 0 1-14 0v-2"/>
+                  <path d="M12 19v4"/>
+                </svg>
+              </button>
+              <button class="btn btn-primary btn-sm" type="submit">Gönder</button>
+            </div>
           </div>
         </form>
       </div>

@@ -17,6 +17,7 @@ export type N8nGeoJsonResponse = {
   geojson?: GeoJsonFeatureCollection;
   record_count?: unknown;
   message?: unknown;
+  sql_key?: unknown;
 };
 
 /** Kentrehberi POI: faaliyet_adi → sabit palet (50 renk, fazla kategoride döngü). */

@@ -36,6 +36,14 @@ function setToggleUi(btn: HTMLButtonElement, enabled: boolean): void {
   btn.textContent = enabled ? 'Seslendirme: Açık' : 'Seslendirme: Kapalı';
 }
 
+function emitAudioToggleChanged(enabled: boolean): void {
+  window.dispatchEvent(
+    new CustomEvent('nc-chatpanel-audio-toggle', {
+      detail: { enabled },
+    }),
+  );
+}
+
 export function bindAudioToggleButton(scope: ParentNode): void {
   const btn = scope.querySelector<HTMLButtonElement>('#nc_chatpanel_audio_toggle_btn');
   if (!btn) return;
@@ -44,10 +52,12 @@ export function bindAudioToggleButton(scope: ParentNode): void {
 
   setToggleUi(btn, audioEnabledState);
   setAudioFeatureEnabled(audioEnabledState);
+  emitAudioToggleChanged(audioEnabledState);
   btn.addEventListener('click', () => {
     audioEnabledState = !audioEnabledState;
     writeStoredAudioEnabled(audioEnabledState);
     setToggleUi(btn, audioEnabledState);
     setAudioFeatureEnabled(audioEnabledState);
+    emitAudioToggleChanged(audioEnabledState);
   });
 }
