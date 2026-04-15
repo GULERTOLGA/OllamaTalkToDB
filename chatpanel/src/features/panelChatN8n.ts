@@ -3,9 +3,62 @@ import { playAudioBlob } from './audioPlayback';
 import { isChatpanelAudioEnabled } from './audioToggle';
 import { hideSearchScanOverlay, showSearchScanOverlay } from './searchScanOverlay';
 import { escapeHtml, scrollMessagesToEnd } from '../shared/utils/textAndDom';
+import placeholderTemplatesJson from '../assets/nc_chatpanel_input_placeholder_templates.json';
 
 const ANALYZE_LINK_TOKEN = '__NC_ANALYZE_LINK__';
 const N8N_PROXY_FETCH_TIMEOUT_MS = 120000;
+const PLACEHOLDER_ROTATE_MS = 8000;
+
+const textareaPlaceholderStops = new WeakMap<HTMLTextAreaElement, () => void>();
+
+export function stopChatInputPlaceholderRotation(textarea: HTMLTextAreaElement): void {
+  const stop = textareaPlaceholderStops.get(textarea);
+  if (!stop) return;
+  stop();
+  textareaPlaceholderStops.delete(textarea);
+}
+
+export function startChatInputPlaceholderRotation(textarea: HTMLTextAreaElement): void {
+  const placeholderTemplates = readPlaceholderTemplates(placeholderTemplatesJson as unknown);
+  stopChatInputPlaceholderRotation(textarea);
+  const stop = startRotatingTextareaPlaceholder(textarea, placeholderTemplates);
+  textareaPlaceholderStops.set(textarea, stop);
+}
+
+function readPlaceholderTemplates(raw: unknown): string[] {
+  if (!Array.isArray(raw)) return [];
+  const out: string[] = [];
+  for (const item of raw) {
+    if (typeof item !== 'string') continue;
+    const s = item.trim();
+    if (s.length > 0) out.push(s);
+  }
+  return out;
+}
+
+function startRotatingTextareaPlaceholder(textarea: HTMLTextAreaElement, templates: string[]): () => void {
+  const phrases = templates.length > 0 ? templates : ['Mesaj yazın…'];
+  let idx = 0;
+
+  const apply = (): void => {
+    if (textarea.disabled) return;
+    if (textarea.value.trim().length > 0) {
+      textarea.placeholder = '';
+      return;
+    }
+    textarea.placeholder = phrases[idx % phrases.length] ?? 'Mesaj yazın…';
+    idx = (idx + 1) % phrases.length;
+  };
+
+  apply();
+  const id = window.setInterval(apply, PLACEHOLDER_ROTATE_MS);
+  textarea.addEventListener('input', apply);
+
+  return () => {
+    window.clearInterval(id);
+    textarea.removeEventListener('input', apply);
+  };
+}
 
 function parseAssistantText(payload: N8nGeoJsonResponse | null, rawText: string): string {
   if (payload && typeof payload.record_count === 'number' && Number.isFinite(payload.record_count)) {
@@ -271,6 +324,8 @@ export function bindForm(scope: ParentNode, n8nProxyUrl: string): void {
 
   ensureBracketCategoryLinkDelegation(messages);
   messages.dataset.ncN8nProxyUrl = n8nProxyUrl;
+
+  startChatInputPlaceholderRotation(input);
 
   const appendMessage = (kind: 'user' | 'ai', textOrNode: string | Node): HTMLElement => {
     const bubble = document.createElement('div');

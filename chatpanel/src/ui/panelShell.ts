@@ -244,6 +244,13 @@ export function injectStyles(target: ShadowRoot): void {
       resize: none;
       line-height: 1.35;
     }
+    .nc_chatpanel_input::placeholder {
+      color: #868e96;
+      opacity: 1;
+    }
+    .nc_chatpanel_input::-webkit-input-placeholder {
+      color: #868e96;
+    }
     .nc_chatpanel_input_footer {
       display: flex;
       align-items: center;
@@ -606,7 +613,7 @@ export function createPanelMarkup(): string {
         </div>
         <div class="nc_chatpanel_messages" id="nc_chatpanel_messages"></div>
         <form class="nc_chatpanel_form p-2" id="nc_chatpanel_form" autocomplete="off">
-          <textarea class="form-control form-control-sm nc_chatpanel_input" id="nc_chatpanel_input" placeholder="Mesaj yazın…"></textarea>
+          <textarea class="form-control form-control-sm nc_chatpanel_input" id="nc_chatpanel_input"></textarea>
           <div class="nc_chatpanel_input_footer">
             <p class="nc_chatpanel_input_hint">Yalnızca mekansal sorgular...</p>
             <div class="nc_chatpanel_input_actions">

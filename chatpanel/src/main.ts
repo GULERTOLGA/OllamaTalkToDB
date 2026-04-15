@@ -8,7 +8,12 @@ import {
   syncMapMagnifierButtonUi,
 } from './features/mapMagnifier';
 import { bindNewsButton, fetchN8nNewsAndLogConsole } from './features/n8nNews';
-import { bindForm, ensureBracketCategoryLinkDelegation } from './features/panelChatN8n';
+import {
+  bindForm,
+  ensureBracketCategoryLinkDelegation,
+  startChatInputPlaceholderRotation,
+  stopChatInputPlaceholderRotation,
+} from './features/panelChatN8n';
 import { showSearchScanOverlay, hideSearchScanOverlay } from './features/searchScanOverlay';
 import {
   getActiveMapInstanceName,
@@ -89,14 +94,16 @@ function resetChatPanelToInitialState(scope: ParentNode): void {
   if (circleBtn) syncMapMagnifierButtonUi(circleBtn, scope);
 
   const messages = scope.querySelector<HTMLElement>('#nc_chatpanel_messages');
-  const input = scope.querySelector<HTMLInputElement>('#nc_chatpanel_input');
+  const input = scope.querySelector<HTMLTextAreaElement>('#nc_chatpanel_input');
 
   if (messages) {
     messages.replaceChildren();
   }
   if (input) {
+    stopChatInputPlaceholderRotation(input);
     input.value = '';
     input.disabled = false;
+    startChatInputPlaceholderRotation(input);
   }
 
   removeChatPanelGeoJsonFromMap();
